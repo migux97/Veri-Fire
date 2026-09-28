@@ -106,9 +106,14 @@ so. Set the contract and the issuing account to make them real.
 1. Open a public verification page: [`/verify?token=VF-013`](https://verifire.cosmosapp.lat/verify?token=VF-013) (an activated product) or [`/verify?token=VF-011`](https://verifire.cosmosapp.lat/verify?token=VF-011).
 2. Sign up at `/login?modo=registro`, choose the company workspace and follow the company steps above.
 3. To see the carousel on the home page, a Verifire administrator has to approve the company that issued the products.
+4. **Or activate a real one yourself:** [`docs/demo-qrs/`](docs/demo-qrs/) has six sealed, unclaimed demo products,
+   each with its public and secret QR ready to use, and instructions for both.
 
 **Reproduce the on-chain flow from a terminal:** `npm run contract:test-activation` registers a product, signs with the
 derived key, authorizes as the buyer and activates it against testnet.
+
+**Videos:** [full demo walkthrough](docs/video-demo.md) and [an external user activating a product with no help from
+the team](docs/video-usuario-externo.md).
 
 ## Verifiable on-chain evidence
 
