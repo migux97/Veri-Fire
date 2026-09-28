@@ -112,8 +112,8 @@ so. Set the contract and the issuing account to make them real.
 **Reproduce the on-chain flow from a terminal:** `npm run contract:test-activation` registers a product, signs with the
 derived key, authorizes as the buyer and activates it against testnet.
 
-**Videos:** [full demo walkthrough](docs/video-demo.md) and [an external user activating a product with no help from
-the team](docs/video-usuario-externo.md).
+**Videos:** [full demo walkthrough](PITCH/video-demo.md) and [an external user activating a product with no help from
+the team](PITCH/video-usuario-externo.md).
 
 ## Verifiable on-chain evidence
 
