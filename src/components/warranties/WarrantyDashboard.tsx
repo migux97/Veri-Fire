@@ -6,25 +6,21 @@ import { Icon } from '@/components/ui/Icon';
 import type { Message, MessageTone } from '@/components/ui/StatusMessage';
 import { Toast } from '@/components/ui/Toast';
 import { useNow } from '@/components/ui/useNow';
-import { storedUser, updateStoredUser } from '@/lib/client/account';
 import { activateWarranty, previewClaim } from '@/lib/client/activation';
 import { setShowcase } from '@/lib/client/showcase';
 import { ApiError, getJson } from '@/lib/client/api';
-import { verifyPassword, deviceCodeFor } from '@/lib/client/password';
 import {
-  captureClaimLink, keepPendingClaim, keepPendingTransfer, takePendingClaim, takePendingTransfer
+  captureClaimLink, takePendingClaim, takePendingTransfer
 } from '@/lib/client/qr';
 import { parseScannedQr, type ScannedClaim } from '@/lib/qr-codes';
-import { leaveSession, userSession } from '@/lib/client/session';
+import { userSession } from '@/lib/client/session';
 import {
   acceptTransfer, cancelTransfer, offerTransfer, readTransferLink, savedTransferLink, type IncomingTransfer
 } from '@/lib/client/transfer';
-import { DeviceNotReadyError, EmailCodeRequiredError, enableSigning, hasDeviceFactor, resolveWalletAddress, storedDeviceCode } from '@/lib/client/wallet';
+import { resolveWalletAddress } from '@/lib/client/wallet';
 import { errorMessage } from '@/lib/errors';
 import { formatCountdown } from '@/lib/format';
 import type { ClaimPreview, TransferredWarranty, Warranty, WarrantiesResponse } from '@/lib/types';
-import { isStellarAddress } from '@/lib/validation';
-import { DeviceEnrollForm } from './DeviceEnrollForm';
 import { QrScanPanel } from './QrScanPanel';
 import { ShowcaseConsent } from './ShowcaseConsent';
 import { WarrantyVault, type ShowcaseControls, type TransferControls } from './WarrantyVault';
@@ -34,13 +30,12 @@ import { fillIn, getConsumerMessages, type ConsumerLocale } from '@/i18n/consume
 const TRANSFER_POLL_MS = 8000;
 
 interface WarrantyDashboardProps {
-  cavosAppId: string;
   locale?: ConsumerLocale;
 }
 
-export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboardProps) {
+export function WarrantyDashboard({ locale = 'es' }: WarrantyDashboardProps) {
   const labels = getConsumerMessages(locale);
-  const { claim: claimCopy, incoming: incomingCopy, card, device } = labels;
+  const { claim: claimCopy, incoming: incomingCopy, card } = labels;
   const [message, setMessage] = useState<Message | null>(null);
   const [scannedClaim, setScannedClaim] = useState<ScannedClaim | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -57,9 +52,6 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
   const [transferLinks, setTransferLinks] = useState<Record<string, string>>({});
   const [busyToken, setBusyToken] = useState<string | null>(null);
   const [transferStatuses, setTransferStatuses] = useState<Record<string, Message>>({});
-  // What failed because this browser could not sign yet: "Reintentar" enables it and runs it again.
-  const [repair, setRepair] = useState<{ run: () => Promise<void> } | null>(null);
-  const [repairing, setRepairing] = useState(false);
   // What the panel is asking before doing something that cannot be taken back.
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const now = useNow(incoming !== null);
@@ -98,7 +90,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
     if (!quiet) setVaultStatus(claimCopy.loading);
     const request = ++loadRequest.current;
     try {
-      walletAddress.current ||= await resolveWalletAddress(cavosAppId);
+      walletAddress.current ||= await resolveWalletAddress();
       const data = await getJson<WarrantiesResponse>(`/api/warranties?owner=${encodeURIComponent(walletAddress.current)}`, claimCopy.loadError);
       if (request !== loadRequest.current) return data;
       setWarranties(data.warranties);
@@ -137,60 +129,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
     return () => window.clearInterval(timer);
   }, [openOffers]);
 
-  // Enables this browser to sign and saves the account's key in Stellar, so every other device can sign too.
-  const enrollDeviceFactor = async (deviceCode: string) => {
-    const address = walletAddress.current || storedUser()?.walletAddress || '';
-    if (!isStellarAddress(address)) throw new Error(device.noWallet);
-    await enableSigning(cavosAppId, address, deviceCode);
-  };
-
-  // The key is derived from the password this account uses in this browser.
-  const deviceCodeFromPassword = async (password: string) => {
-    const account = storedUser();
-    if (!account || !(await verifyPassword(account, password))) throw new Error(device.wrongPassword);
-    return deviceCodeFor(account.email, password);
-  };
-
-  // Offers "Reintentar" when the error is one this browser can fix with the password.
-  const offerRepair = (error: unknown, run: () => Promise<void>) => {
-    if (error instanceof DeviceNotReadyError && error.canRetry) setRepair({ run });
-  };
-
-  const repairAndRetry = async (password?: string) => {
-    if (!repair) return;
-    setRepairing(true);
-    showMessage(device.working, 'info');
-    try {
-      await enrollDeviceFactor(password ? await deviceCodeFromPassword(password) : storedDeviceCode());
-      setRepair(null);
-      await repair.run();
-    } catch (error) {
-      showMessage(errorMessage(error), 'error');
-    } finally {
-      setRepairing(false);
-    }
-  };
-
-  // An account that never saved its key in Stellar saves it by itself when the login left the password's key in this
-  // tab; otherwise "Reintentar" does it the first time a signature fails.
-  const enableOtherDevices = async () => {
-    const address = walletAddress.current || storedUser()?.walletAddress || '';
-    const deviceCode = storedDeviceCode();
-    if (!deviceCode || !isStellarAddress(address) || await hasDeviceFactor(address) !== false) return;
-    try {
-      await enrollDeviceFactor(deviceCode);
-    } catch (error) {
-      console.warn('No se pudo guardar la llave de la cuenta en Stellar:', errorMessage(error));
-    }
-  };
-
-  // The wallet cannot be reconnected without confirming the email again: ask for a code at login and come back.
-  const leaveForEmailCode = () => {
-    updateStoredUser({ emailVerifiedAt: 0 });
-    leaveSession('verificar');
-  };
-
-  const ownerAddress = async () => (walletAddress.current ||= await resolveWalletAddress(cavosAppId));
+  const ownerAddress = async () => (walletAddress.current ||= await resolveWalletAddress());
 
   // A transfer link opened or scanned: show what it offers before accepting.
   const openTransferLink = async (secret: string) => {
@@ -206,20 +145,13 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
 
   const handleAcceptTransfer = async () => {
     if (!incoming) return;
-    setRepair(null);
     setAccepting(true);
     try {
-      const warranty = await acceptTransfer(cavosAppId, incoming.transfer, await ownerAddress(), (progress) => showMessage(progress, 'info'));
+      const warranty = await acceptTransfer(incoming.transfer, await ownerAddress(), (progress) => showMessage(progress, 'info'));
       setIncoming(null);
       showMessage(fillIn(incomingCopy.accepted, { model: warranty.model }), 'success');
       await loadWarranties();
     } catch (error) {
-      if (error instanceof EmailCodeRequiredError) {
-        keepPendingTransfer(incoming.secret);
-        leaveForEmailCode();
-        return;
-      }
-      offerRepair(error, handleAcceptTransfer);
       showMessage(errorMessage(error), 'error');
     } finally {
       setAccepting(false);
@@ -229,7 +161,6 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
   // Opening and cancelling a link: the owner's wallet signs, and the card shows how it went.
   const runTransfer = async (token: string, task: (owner: string, onProgress: (text: string) => void) => Promise<Warranty>, done: string) => {
     const setStatus = (text: string, tone: MessageTone) => setTransferStatuses((current) => ({ ...current, [token]: { text, tone } }));
-    setRepair(null);
     setBusyToken(token);
     try {
       const warranty = await task(await ownerAddress(), (progress) => setStatus(progress, 'info'));
@@ -237,16 +168,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
       setWarranties((current) => current?.map((candidate) => (candidate.token === token ? warranty : candidate)) ?? current);
       setStatus(done, 'success');
     } catch (error) {
-      if (error instanceof EmailCodeRequiredError) {
-        leaveForEmailCode();
-        return;
-      }
       setStatus(errorMessage(error), 'error');
-      if (error instanceof DeviceNotReadyError && error.canRetry) {
-        // The button lives next to the panel's message, at the top.
-        offerRepair(error, () => runTransfer(token, task, done));
-        showMessage(errorMessage(error), 'error');
-      }
     } finally {
       setBusyToken(null);
     }
@@ -257,7 +179,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
     busyToken,
     statuses: transferStatuses,
     onOffer: (token) => void runTransfer(token, async (owner, onProgress) => {
-      const { warranty, link } = await offerTransfer(cavosAppId, token, owner, onProgress);
+      const { warranty, link } = await offerTransfer(token, owner, onProgress);
       setTransferLinks((current) => ({ ...current, [token]: link }));
       return warranty;
     }, card.linkReady),
@@ -270,7 +192,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
       onConfirm: () => {
         setConfirmation(null);
         void runTransfer(token, async (owner, onProgress) => {
-          const warranty = await cancelTransfer(cavosAppId, token, owner, onProgress);
+          const warranty = await cancelTransfer(token, owner, onProgress);
           setTransferLinks(({ [token]: _closed, ...rest }) => rest);
           return warranty;
         }, card.linkCancelled);
@@ -283,19 +205,13 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
     busyToken: showcaseBusy,
     onToggle: (token, visible) => {
       const run = async () => {
-        setRepair(null);
-        setShowcaseBusy(token);
+            setShowcaseBusy(token);
         try {
-          const warranty = await setShowcase(cavosAppId, await ownerAddress(), token, visible);
+          const warranty = await setShowcase(await ownerAddress(), token, visible);
           listChanged();
           setWarranties((current) => current?.map((candidate) => (candidate.token === token ? warranty : candidate)) ?? current);
           showMessage(visible ? card.showcase.shown : card.showcase.hidden, 'success');
         } catch (error) {
-          if (error instanceof EmailCodeRequiredError) {
-            leaveForEmailCode();
-            return;
-          }
-          offerRepair(error, run);
           showMessage(errorMessage(error), 'error');
         } finally {
           setShowcaseBusy(null);
@@ -343,25 +259,17 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
   };
 
   const claim = async (scannedClaim: ScannedClaim) => {
-    setRepair(null);
     setClaiming(true);
     showMessage(claimCopy.working, 'info');
     try {
-      const owner = walletAddress.current || await resolveWalletAddress(cavosAppId);
-      const product = await activateWarranty(cavosAppId, scannedClaim, owner, showcaseChoice && preview?.canShowcase === true, (progress) => showMessage(progress, 'info'));
+      const owner = walletAddress.current || await resolveWalletAddress();
+      const product = await activateWarranty(scannedClaim, owner, showcaseChoice && preview?.canShowcase === true, (progress) => showMessage(progress, 'info'));
       setScannedClaim(null);
       showMessage(fillIn(product.certificateUrl ? claimCopy.doneOnChain : claimCopy.done, { model: product.model }), 'success');
       await loadWarranties();
     } catch (error) {
-      // The wallet cannot be reconnected without confirming the email again: keep the QR and ask for a code at login.
-      if (error instanceof EmailCodeRequiredError) {
-        keepPendingClaim(scannedClaim);
-        leaveForEmailCode();
-        return;
-      }
       // A QR that does not exist or was already used will not work on a retry.
       if (error instanceof ApiError && error.status < 500 && !error.retryable) setScannedClaim(null);
-      offerRepair(error, () => claim(scannedClaim));
       showMessage(errorMessage(error), 'error');
     } finally {
       setClaiming(false);
@@ -383,8 +291,7 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
     }
 
     void loadWarranties()
-      .then(() => (pendingTransfer ? openTransferLink(pendingTransfer) : undefined))
-      .then(enableOtherDevices);
+      .then(() => (pendingTransfer ? openTransferLink(pendingTransfer) : undefined));
     // Runs once per page load.
   }, []);
 
@@ -433,24 +340,6 @@ export function WarrantyDashboard({ cavosAppId, locale = 'es' }: WarrantyDashboa
           onScanStart={() => setScannedClaim(null)}
         />
         <Toast message={message} onClose={() => setMessage(null)} closeLabel={labels.vault.closeNotice} />
-        {repair && (storedDeviceCode()
-          ? (
-            <div className="repair-prompt">
-              <p>{device.prompt}</p>
-              <button className="button button-primary" type="button" disabled={repairing} onClick={() => void repairAndRetry()}>
-                <Icon name="fa-solid fa-rotate-right" /> {device.retry}
-              </button>
-            </div>
-          )
-          : (
-            <DeviceEnrollForm
-              submitLabel={device.retry}
-              hint={device.hint}
-              labels={device}
-              onEnroll={repairAndRetry}
-              onCancel={() => setRepair(null)}
-            />
-          ))}
         <form id="claim-form" noValidate hidden={!scannedClaim} onSubmit={handleClaim}>
           <ShowcaseConsent preview={preview} checking={previewing} checked={showcaseChoice} onChange={setShowcaseChoice} disabled={claiming} locale={locale} />
           <button ref={claimButtonRef} className="button button-primary" type="submit" disabled={claiming}>{claimCopy.activate}</button>

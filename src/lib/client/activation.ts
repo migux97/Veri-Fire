@@ -1,15 +1,14 @@
 // Warranty activation from the buyer's panel.
-// The secret QR becomes an ed25519 key here (same derivation as the contract and src/lib/server/stellar.ts). The
+// The secret QR becomes an ed25519 key here (same derivation as the contract and the Solana program). The
 // browser signs the activation with it and sends only the public key and the signature: the secret never leaves the page.
-import type { CavosStellar } from '@cavos/kit';
 import { ACTIVATION_DOMAIN } from '../activation';
-import type { ClaimPreview, PreparedClaim, Warranty } from '../types';
+import type { ClaimPreview, PreparedClaim, UnsignedTransaction, Warranty } from '../types';
 import { ApiError, postJson } from './api';
 import { base64ToBytes, base64UrlToBytes, bytesToBase64, bytesToHex } from './bytes';
 import type { ScannedClaim } from '../qr-codes';
-import { connectSigningWallet, createAccountOnChain, storedDeviceCode } from './wallet';
+import { connectSigner, type Progress } from './signer';
 
-export type Progress = (message: string) => void;
+export type { Progress };
 
 export interface SigningKey {
   privateKey: CryptoKey;
@@ -48,16 +47,6 @@ export const deriveSigningKey = async (domain: string, secret: string): Promise<
 export const signWith = async (key: SigningKey, messageBase64: string) =>
   bytesToBase64(new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, key.privateKey, base64ToBytes(messageBase64))));
 
-// The contract can only authorize an account that exists on-chain. Logins create it; an account whose login could not
-// is created here, with the multi-device factor of this session's password when there is one.
-export const ensureAccountCreated = async (wallet: CavosStellar, onProgress: Progress) => {
-  if (wallet.status !== 'undeployed') return;
-  onProgress('Creando tu cuenta en Stellar por única vez...');
-  const deviceCode = storedDeviceCode();
-  if (deviceCode) await wallet.setupRecovery(deviceCode);
-  await createAccountOnChain(wallet);
-};
-
 // What the product behind a scanned secret QR looks like, before activating it. Null for a QR that does not lead to a
 // product with a key (the seed product): there is nothing to preview and it cannot be shown on the home page.
 export const previewClaim = async (claim: ScannedClaim): Promise<ClaimPreview | null> => {
@@ -72,8 +61,7 @@ export const previewClaim = async (claim: ScannedClaim): Promise<ClaimPreview | 
   }
 };
 
-const activateOnStellar = async (
-  appId: string,
+const activateOnChain = async (
   activation: SigningKey,
   owner: string,
   prepared: Extract<PreparedClaim, { onChain: true }>,
@@ -81,21 +69,19 @@ const activateOnStellar = async (
   onProgress: Progress
 ) => {
   const request = { activationKey: activation.publicKey, owner };
-  onProgress('Conectando tu wallet Cavos...');
-  const wallet = await connectSigningWallet(appId, owner);
-  await ensureAccountCreated(wallet, onProgress);
+  const wallet = await connectSigner(owner, onProgress);
   const signature = await signWith(activation, prepared.message);
-  const { xdr } = await postJson<{ xdr: string }>('/api/warranties/transaction', { ...request, signature }, 'No se pudo preparar la activación en Stellar.');
-  onProgress('Autorizando la activación con tu wallet Cavos...');
-  const signedXdr = await wallet.signXdr(xdr);
-  onProgress('Registrando tu garantía en Stellar. Puede tardar unos segundos...');
-  return postJson<Warranty>('/api/warranties', { ...request, signedXdr, showcase }, 'No se pudo registrar la activación en Stellar.');
+  const unsigned = await postJson<UnsignedTransaction>('/api/warranties/transaction', { ...request, signature }, `No se pudo preparar la activación en Solana.`);
+  onProgress(`Autorizando la activación con tu wallet...`);
+  const signedTx = await wallet.signTransaction(unsigned.tx);
+  onProgress(`Registrando tu garantía en Solana. Puede tardar unos segundos...`);
+  return postJson<Warranty>('/api/warranties', { ...request, signedTx, showcase }, `No se pudo registrar la activación en Solana.`);
 };
 
 // Uses the contract when the server has one. Without it, or for the seed product that has no secret code (the server
 // does not know its key and answers 404), falls back to the demo claim stored only in the server.
 // showcase: the buyer agreed to show the product on the home page (the server ignores it without a photo).
-export const activateWarranty = async (appId: string, claim: ScannedClaim, owner: string, showcase: boolean, onProgress: Progress) => {
+export const activateWarranty = async (claim: ScannedClaim, owner: string, showcase: boolean, onProgress: Progress) => {
   const secret = secretFromClaim(claim);
   if (secret) {
     const activation = await deriveSigningKey(ACTIVATION_DOMAIN, secret);
@@ -105,7 +91,7 @@ export const activateWarranty = async (appId: string, claim: ScannedClaim, owner
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
     }
-    if (prepared?.onChain) return activateOnStellar(appId, activation, owner, prepared, showcase, onProgress);
+    if (prepared?.onChain) return activateOnChain(activation, owner, prepared, showcase, onProgress);
   }
   return postJson<Warranty>('/api/warranties', { ...claim, owner, showcase }, 'No se pudo activar la garantía.');
 };

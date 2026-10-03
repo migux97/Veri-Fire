@@ -27,7 +27,7 @@ import '@/styles/auth.css';
         <ul class="auth-features">
           <li>Activás la garantía con el QR de adentro de la caja</li>
           <li>Seguís cada lote y dónde se activó cada unidad</li>
-          <li>Tu wallet de Stellar se crea con tu correo, sin comisiones</li>
+          <li>Tu wallet de Solana se crea con tu correo, sin comisiones</li>
         </ul>
       </div>
 
@@ -44,7 +44,7 @@ import '@/styles/auth.css';
       </nav>
 
       <div class="auth-card">
-        <AuthPanel client:load cavosAppId={publicConfig.cavosAppId} />
+        <AuthPanel client:load privyAppId={publicConfig.privyAppId} />
       </div>
     </main>
   </div>

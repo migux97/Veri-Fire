@@ -6,7 +6,8 @@ import { postJson } from './api';
 import { bytesToBase64 } from './bytes';
 import { accountKey } from './session';
 import { readStored, writeStored } from './storage';
-import { connectSigningWallet, resolveWalletAddress } from './wallet';
+import { connectSigner } from './signer';
+import { resolveWalletAddress } from './wallet';
 
 // Where the company's panel keeps what the server last said about it, so the settings show it without asking again.
 export const VERIFICATION_EVENT = 'verifire:verification';
@@ -29,26 +30,26 @@ export const writeAdmin = (admin: boolean | undefined) => {
   window.dispatchEvent(new Event(VERIFICATION_EVENT));
 };
 
-const signed = async <T>(appId: string, body: Record<string, unknown>, fallbackError: string): Promise<T> => {
-  const owner = await resolveWalletAddress(appId);
+const signed = async <T>(body: Record<string, unknown>, fallbackError: string): Promise<T> => {
+  const owner = await resolveWalletAddress();
   const { nonce } = await postJson<{ nonce: string }>('/api/workspace/challenge', { owner }, 'No se pudo preparar la comprobación de tu wallet.');
-  const wallet = await connectSigningWallet(appId, owner);
+  const wallet = await connectSigner(owner);
   const { signature, publicKey } = await wallet.signMessage(nonce);
   return postJson<T>('/api/verification', { owner, nonce, signature: bytesToBase64(signature), publicKey, ...body }, fallbackError);
 };
 
-export const requestVerification = async (appId: string, message: string) => {
-  const { verification } = await signed<{ verification: VerificationState }>(appId, { action: 'request', message }, 'No se pudo enviar la solicitud.');
+export const requestVerification = async (message: string) => {
+  const { verification } = await signed<{ verification: VerificationState }>({ action: 'request', message }, 'No se pudo enviar la solicitud.');
   writeVerification(verification);
   return verification;
 };
 
 // Administrators only: a 403 means this account is not one.
-export const listCompaniesForReview = async (appId: string) =>
-  (await signed<{ companies: CompanyForReview[] }>(appId, { action: 'list' }, 'No se pudo leer la lista de empresas.')).companies;
+export const listCompaniesForReview = async () =>
+  (await signed<{ companies: CompanyForReview[] }>({ action: 'list' }, 'No se pudo leer la lista de empresas.')).companies;
 
-export const approveCompany = async (appId: string, target: string, decision: { name: string; domain: string }) =>
-  (await signed<{ verification: VerificationState }>(appId, { action: 'approve', target, ...decision }, 'No se pudo aprobar la empresa.')).verification;
+export const approveCompany = async (target: string, decision: { name: string; domain: string }) =>
+  (await signed<{ verification: VerificationState }>({ action: 'approve', target, ...decision }, 'No se pudo aprobar la empresa.')).verification;
 
-export const rejectCompany = async (appId: string, target: string, note: string) =>
-  (await signed<{ verification: VerificationState }>(appId, { action: 'reject', target, note }, 'No se pudo rechazar la empresa.')).verification;
+export const rejectCompany = async (target: string, note: string) =>
+  (await signed<{ verification: VerificationState }>({ action: 'reject', target, note }, 'No se pudo rechazar la empresa.')).verification;

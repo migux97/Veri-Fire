@@ -29,7 +29,7 @@ const copy = {
     expires: (minutes: number) => `Por seguridad, esta invitación vence en ${minutes} minutos y sirve una sola vez.`,
     fallback: 'Si el botón no funciona, copiá este enlace en tu navegador:',
     ignore: 'Si no esperabas esta invitación, podés ignorar este correo: nadie va a acceder a tu cuenta.',
-    footer: 'Verifire · Verificación de productos y garantías certificadas en Stellar',
+    footer: 'Verifire · Verificación de productos y garantías certificadas en Solana',
     roles: { admin: 'Administrador', operator: 'Operador', auditor: 'Auditor', viewer: 'Solo lectura' }
   },
   en: {
@@ -46,7 +46,7 @@ const copy = {
     expires: (minutes: number) => `For your security, this invitation expires in ${minutes} minutes and works only once.`,
     fallback: 'If the button does not work, paste this link into your browser:',
     ignore: 'If you were not expecting this invitation, you can ignore this email: nobody will access your account.',
-    footer: 'Verifire · Product verification and certified warranties on Stellar',
+    footer: 'Verifire · Product verification and certified warranties on Solana',
     roles: { admin: 'Administrator', operator: 'Operator', auditor: 'Auditor', viewer: 'Read only' }
   }
 } satisfies Record<Locale, unknown>;

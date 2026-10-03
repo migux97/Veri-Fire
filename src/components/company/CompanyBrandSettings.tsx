@@ -1,16 +1,14 @@
-// "Marca para tus compradores" in Configuración: how the company shows on each warranty, whether it is published, and the
-// stellar.toml it can publish on its own website. Nothing here is published until the company presses the button.
-import { useEffect, useMemo, useState } from 'react';
+// "Marca para tus compradores" in Configuración: how the company shows on each warranty and whether it is published.
+// Nothing here is published until the company presses the button.
+import { useEffect, useState } from 'react';
 import { IssuerBadge } from '@/components/ui/IssuerBadge';
 import { ACCOUNT_DATA_EVENT } from '@/lib/client/account-data';
 import type { PublicBrand } from '@/lib/brand';
 import { currentBrand, brandStatus, publishBrand, readPublishedBrand, unpublishBrand, type BrandStatus, type PublishedBrand } from '@/lib/client/brand';
-import { COMPANY_PROFILE_EVENT, emptyProfile, readCompanyProfile } from '@/lib/client/company-profile';
-import { downloadBlob } from '@/lib/client/download';
+import { COMPANY_PROFILE_EVENT } from '@/lib/client/company-profile';
 import { storedUser } from '@/lib/client/account';
 import { currentWorkspace } from '@/lib/client/workspace';
 import { errorMessage } from '@/lib/errors';
-import { buildStellarToml } from '@/lib/stellar-toml';
 import { useCompanyText } from './CompanyText';
 
 interface Notice {
@@ -20,12 +18,11 @@ interface Notice {
 
 const emptyBrand: PublicBrand = { name: '', website: '', description: '', supportEmail: '', supportPhone: '', logo: '' };
 
-export function CompanyBrandSettings({ cavosAppId }: { cavosAppId: string }) {
+export function CompanyBrandSettings() {
   const t = useCompanyText();
   const text = t.settings.brand;
   // Empty until the page is in the browser: the server that renders it first has no storage to read them from.
   const [brand, setBrand] = useState<PublicBrand>(emptyBrand);
-  const [profile, setProfile] = useState(emptyProfile);
   const [published, setPublished] = useState<PublishedBrand | null>(null);
   const [status, setStatus] = useState<BrandStatus>('unpublished');
   const [editable, setEditable] = useState(false);
@@ -38,7 +35,6 @@ export function CompanyBrandSettings({ cavosAppId }: { cavosAppId: string }) {
     let active = true;
     const load = () => {
       setBrand(currentBrand());
-      setProfile(readCompanyProfile());
       setPublished(readPublishedBrand());
       setEditable(Boolean(currentWorkspace(storedUser())?.own));
       void brandStatus().then((next) => active && setStatus(next));
@@ -70,34 +66,15 @@ export function CompanyBrandSettings({ cavosAppId }: { cavosAppId: string }) {
   const publish = () =>
     run(async () => {
       const wasPublished = Boolean(readPublishedBrand());
-      await publishBrand(cavosAppId);
+      await publishBrand();
       return wasPublished ? text.updatedDone : text.publishedDone;
     });
 
   const takeDown = () =>
     run(async () => {
-      await unpublishBrand(cavosAppId);
+      await unpublishBrand();
       return text.unpublishedDone;
     });
-
-  const toml = useMemo(
-    () =>
-      buildStellarToml({
-        commercialName: brand.name,
-        legalName: profile.legalName,
-        website: profile.website,
-        description: profile.description,
-        officialEmail: profile.email,
-        supportEmail: brand.supportEmail,
-        logoUrl: published?.logoUrl ?? ''
-      }),
-    [brand, profile, published]
-  );
-
-  const downloadToml = () => {
-    downloadBlob(new Blob([toml.text], { type: 'text/plain;charset=utf-8' }), 'stellar.toml');
-    setNotice({ text: text.toml.downloaded, tone: 'success' });
-  };
 
   const canPublish = editable && !busy && brand.name.trim().length > 0;
   const issuer = {
@@ -145,38 +122,6 @@ export function CompanyBrandSettings({ cavosAppId }: { cavosAppId: string }) {
         {!brand.name.trim() && editable && <small className="profile-hint brand-warning">{text.needName}</small>}
       </div>
 
-      <div className="brand-toml">
-        <h3>{text.toml.title}</h3>
-        <p>{text.toml.lead}</p>
-        <div className="brand-toml-keys" aria-label={text.toml.included}>
-          {toml.included.map((key) => (
-            <span key={key} className="brand-key is-included" title={text.toml.included}>
-              <i className="fa-solid fa-check" aria-hidden="true" /> {text.toml.keys[key] ?? key}
-            </span>
-          ))}
-          {toml.omitted.map(({ key, reason }) => (
-            <span key={key} className="brand-key is-omitted" title={text.toml.omitted}>
-              <i className="fa-solid fa-minus" aria-hidden="true" /> {text.toml.keys[key] ?? key}: {text.toml.reasons[reason] ?? reason}
-            </span>
-          ))}
-        </div>
-        {!published?.logoUrl && <small className="profile-hint">{text.toml.logoHint}</small>}
-        {toml.warnings.map((warning) => (
-          <small key={warning} className="profile-hint brand-warning">
-            {text.toml.warnings[warning] ?? warning}
-          </small>
-        ))}
-        <div className="settings-actions">
-          <button type="button" className="company-button" disabled={!toml.included.length} onClick={downloadToml}>
-            <i className="fa-solid fa-file-arrow-down" aria-hidden="true" /> {text.toml.download}
-          </button>
-        </div>
-        <details className="brand-toml-where">
-          <summary>{text.toml.whereTitle}</summary>
-          <p>{text.toml.where}</p>
-          <p>{text.toml.note}</p>
-        </details>
-      </div>
 
       {notice && (
         <p className={notice.tone === 'success' ? 'settings-success' : 'settings-error'} role={notice.tone === 'error' ? 'alert' : 'status'}>

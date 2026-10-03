@@ -71,11 +71,11 @@ function Summary() {
             </div>
             <div>
               <dt>{text.emission.pendingAmount}</dt>
-              <dd>{number(pending.reduce((sum, record) => sum + Number(record.amount), 0))} XLM</dd>
+              <dd>{number(pending.reduce((sum, record) => sum + Number(record.amount), 0))} USDC</dd>
             </div>
             <div>
               <dt>{text.emission.investment}</dt>
-              <dd>{number(issued.reduce((sum, record) => sum + Number(record.amount), 0))} XLM</dd>
+              <dd>{number(issued.reduce((sum, record) => sum + Number(record.amount), 0))} USDC</dd>
             </div>
             <div>
               <dt>{text.emission.onChain}</dt>

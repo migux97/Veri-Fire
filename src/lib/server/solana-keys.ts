@@ -1,6 +1,6 @@
 // ed25519 keys derived from a printed secret or a transfer link: seed = sha256("<domain>:" + secret), the same
-// derivation as the browser (src/lib/client/activation.ts) and the Stellar contract, so the QR already printed keep
-// working on Solana. Only the server and scripts import this file.
+// derivation as the browser (src/lib/client/activation.ts) and the program's tests. Only the server and scripts import
+// this file.
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { ACTIVATION_DOMAIN } from '../activation.ts';
 

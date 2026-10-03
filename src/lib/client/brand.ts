@@ -54,10 +54,10 @@ export const brandStatus = async (): Promise<BrandStatus> => {
 };
 
 // Publishes (or updates) the brand. Answers what the server now holds.
-export const publishBrand = async (appId: string): Promise<PublishedBrand | null> => {
+export const publishBrand = async (): Promise<PublishedBrand | null> => {
   const brand = currentBrand();
-  const owner = await resolveWalletAddress(appId);
-  const remote = await syncWorkspace(appId, owner, { brand });
+  const owner = await resolveWalletAddress();
+  const remote = await syncWorkspace(owner, { brand });
   if (!remote.brand) throw new Error('El servidor no confirmó la publicación. Probá de nuevo.');
   const published: PublishedBrand = {
     slug: remote.brand.slug,
@@ -70,14 +70,14 @@ export const publishBrand = async (appId: string): Promise<PublishedBrand | null
 };
 
 // Takes the brand down: buyers go back to seeing only the name and email set for support.
-export const unpublishBrand = async (appId: string) => {
-  const owner = await resolveWalletAddress(appId);
-  await syncWorkspace(appId, owner, { brand: null });
+export const unpublishBrand = async () => {
+  const owner = await resolveWalletAddress();
+  await syncWorkspace(owner, { brand: null });
   writeAccountData('brand-public', { unpublished: true });
 };
 
 // After the profile or the support settings change: a brand that was published stays in step with them.
-export const refreshPublishedBrand = async (appId: string) => {
+export const refreshPublishedBrand = async () => {
   if (!readPublishedBrand()) return null;
-  return publishBrand(appId);
+  return publishBrand();
 };

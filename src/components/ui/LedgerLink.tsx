@@ -7,7 +7,7 @@ interface LedgerLinkProps {
   children: ReactNode;
 }
 
-// Subtle link to a public Stellar transaction, opened in a new tab.
+// Subtle link to a public Solana transaction, opened in a new tab.
 export function LedgerLink({ href, title, children }: LedgerLinkProps) {
   return (
     <a className="ledger-link" href={href} target="_blank" rel="noopener noreferrer" title={title}>

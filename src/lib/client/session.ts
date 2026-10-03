@@ -1,15 +1,13 @@
 // The account stays in this browser; the session in front of it lasts 8 hours from login.
 // Imported by page frontmatter for its constants, so nothing here touches the browser at module load.
 import { readRaw, readStored, removeStored, storedKeys, writeRaw, writeStored } from './storage';
+import { currentPrivyBridge } from './privy-registry';
 
 export const SESSION_KEY = 'verifireAuthSession';
 export const SESSION_MAX_MS = 8 * 60 * 60 * 1000;
 const SESSION_CHECK_MS = 60 * 1000;
 export const WALLET_KEY = 'verifireWallet';
 export const WALLET_UPDATED_EVENT = 'verifire:wallet-updated';
-// The key derived from the password that opens the signing key on any device. It lives in sessionStorage so the
-// panel can finish enabling an account whose login could not, and it dies with the tab.
-export const DEVICE_CODE_KEY = 'verifireDeviceCode';
 // Set in this tab once it opens a page behind login: from then on the landing page sends it back to the panel. A new
 // tab starts without it, so it shows the landing page with the profile and a link to the panel.
 export const IN_APP_KEY = 'verifireInApp';
@@ -33,12 +31,11 @@ export const userSession = {
   },
   email: () => userSession.read()?.email ?? '',
   start: (email: string) => writeStored(localStorage, SESSION_KEY, { email, startedAt: Date.now() }),
-  // Removes everything that lets this browser act as the user, but keeps the account and the Cavos device keys
-  // (IndexedDB), so logging in again recovers the same wallet.
+  // Removes everything that lets this browser act as the user, but keeps the account. The wallet stays with Privy, so
+  // logging in again recovers the same one.
   end: () => {
     removeStored(localStorage, SESSION_KEY);
     removeStored(localStorage, WALLET_KEY);
-    removeStored(sessionStorage, DEVICE_CODE_KEY);
     removeStored(sessionStorage, IN_APP_KEY);
     removeStored(sessionStorage, 'verifireSession');
     removeStored(sessionStorage, WALLET_KEY);
@@ -49,8 +46,6 @@ export const userSession = {
       storedKeys(storage)
         .filter(
           (key) =>
-            key.startsWith('cavos-kit:identity:') ||
-            key.startsWith('cavos-kit:token:') ||
             key.startsWith(`${ACCOUNT_PREFIX}:transfer-links:`) ||
             key === 'verifireTransferLinks'
         )
@@ -86,7 +81,15 @@ export const accountKey = (name: string, legacyKey?: string) => {
 
 export const leaveSession = (reason: SessionEndReason) => {
   userSession.end();
-  window.location.replace(`/login?sesion=${reason}`);
+  const leave = () => window.location.replace(`/login?sesion=${reason}`);
+  // On Solana the wallet lives in Privy's own session: closing Verifire's closes it too, so the next person to use this
+  // browser does not get it. Leaves anyway if Privy does not answer.
+  const privy = currentPrivyBridge();
+  if (reason === 'cerrada' && privy) {
+    void Promise.race([privy.logout(), new Promise((resolve) => window.setTimeout(resolve, 3000))]).finally(leave);
+    return;
+  }
+  leave();
 };
 
 // For pages behind login. Without an active session it clears any stale one and sends the user to the login page.

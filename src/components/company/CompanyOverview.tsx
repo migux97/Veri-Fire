@@ -202,7 +202,7 @@ export function CompanyOverview({ records, loading }: { records: PurchaseSummary
       icon: 'clock',
       color: 'amber'
     },
-    { label: text.metrics.investment, value: investment, format: (value: number) => `${number(value, 0)} XLM`, detail: text.metrics.investmentDetail, icon: 'wallet', color: 'red' }
+    { label: text.metrics.investment, value: investment, format: (value: number) => `${number(value, 0)} USDC`, detail: text.metrics.investmentDetail, icon: 'wallet', color: 'red' }
   ];
 
   return (
@@ -336,7 +336,7 @@ export function CompanyOverview({ records, loading }: { records: PurchaseSummary
                       '—'
                     )}
                   </td>
-                  <td>{number(Number(purchase.amount))} XLM</td>
+                  <td>{number(Number(purchase.amount))} USDC</td>
                 </tr>
               ))}
             </tbody>

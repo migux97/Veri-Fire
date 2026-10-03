@@ -2,7 +2,7 @@ import type { ApiErrorBody } from '../types';
 
 export class ApiError extends Error {
   readonly status: number;
-  // The server said the same request may work later (for example, a product still being registered on Stellar).
+  // The server said the same request may work later (for example, a product still being registered on Solana).
   readonly retryable: boolean;
 
   constructor(message: string, status: number, retryable = false) {

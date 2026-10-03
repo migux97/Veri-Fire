@@ -132,7 +132,7 @@ export interface PurchaseRequest {
   support?: { companyName: string; email: string; warrantyMonths: number };
 }
 
-// Creates the Cosmos Pay payment of a new batch.
+// Creates the Solana Pay payment of a new batch.
 export const createPurchase = (request: PurchaseRequest, fallbackError: string) =>
   postJson<CreatedPurchase>('/api/purchases', request, fallbackError);
 

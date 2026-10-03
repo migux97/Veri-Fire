@@ -45,7 +45,7 @@ const es = {
     detected: 'QR del producto detectado. Tocá «Activar Garantía Oficial» para registrarlo a tu nombre.',
     scanFirst: 'Primero escaneá el QR de la etiqueta interna del producto.',
     working: 'Verificando el QR y preparando tu garantía...',
-    doneOnChain: 'La garantía de {model} quedó registrada en Stellar a tu nombre.',
+    doneOnChain: 'La garantía de {model} quedó registrada en Solana a tu nombre.',
     done: 'La garantía de {model} quedó activada a tu nombre.',
     publicQr: 'Ese es el QR público del producto: sirve para verificarlo. Para activar la garantía escaneá el QR de la etiqueta interna.',
     unknownQr: 'No reconocimos ese QR como un QR de Verifire.',
@@ -68,18 +68,18 @@ const es = {
     eyebrow: 'Cambio de dueño',
     title: 'Te pasaron un producto',
     product: 'Producto', code: 'Código', owner: 'Dueño actual',
-    note: 'Al aceptar, la garantía y el historial del producto pasan a tu cuenta, y el cambio de dueño queda registrado en Stellar. Tu wallet Cavos firma la aceptación: no pagás comisiones.',
+    note: 'Al aceptar, la garantía y el historial del producto pasan a tu cuenta, y el cambio de dueño queda registrado en Solana. Tu wallet firma la aceptación: no pagás comisiones.',
     expired: 'Este link venció. Pedile al dueño que genere uno nuevo.',
     expiresIn: 'El link vence en',
     accept: 'Aceptar transferencia', discard: 'Descartar',
     reading: 'Leyendo el link de transferencia...',
-    accepted: '¡Listo! {model} ya está a tu nombre. El cambio de dueño quedó registrado en Stellar.',
+    accepted: '¡Listo! {model} ya está a tu nombre. El cambio de dueño quedó registrado en Solana.',
     given: '{model}: este producto fue transferido al usuario {to}. Quedó registrado en su historial.'
   },
   card: {
     claimedAt: 'Fecha de reclamo', coverage: 'Vigencia de la cobertura', until: 'Garantía oficial hasta',
-    certificate: 'Ver certificado en Stellar',
-    certificateTitle: 'Transacción pública que certificó esta garantía en el contrato Verifire (Stellar testnet)',
+    certificate: 'Ver certificado en Solana',
+    certificateTitle: 'Transacción pública que certificó esta garantía en el programa Verifire en Solana',
     history: 'Historial del producto',
     transfer: 'Transferir a otra persona', newLink: 'Generar un link nuevo', cancel: 'Cancelar transferencia',
     qrAlt: 'QR del link de transferencia', copy: 'Copiar link', copied: 'Link copiado',
@@ -115,8 +115,8 @@ const es = {
     transferred: 'Productos que transferiste',
     transferredBadge: 'Transferido',
     transferredNote: 'Este producto fue transferido al usuario {to} el {date}. La garantía sigue vigente a su nombre.',
-    transferLink: 'Ver la transferencia en Stellar',
-    transferTitle: 'Transacción pública del cambio de dueño (Stellar testnet)',
+    transferLink: 'Ver la transferencia en Solana',
+    transferTitle: 'Transacción pública del cambio de dueño en Solana',
     empty: 'No tenés garantías registradas todavía. Escaneá el QR de tu producto arriba para reclamar tu certificado de autenticidad.',
     pagesActive: 'Páginas de garantías activas', pagesTransferred: 'Páginas de productos transferidos',
     previous: 'Anterior', next: 'Siguiente', pageOf: 'Página {page} de {pages}', closeNotice: 'Cerrar aviso',
@@ -135,7 +135,7 @@ const es = {
   history: {
     minted: 'Registrado en el contrato', shipped: 'Despachado a su destino', verified: 'Verificado con el QR público',
     activated: 'Garantía activada con el QR secreto', rejected: 'Activación rechazada', transferred: 'Transferido a otro usuario',
-    link: 'Ver en Stellar', linkTitle: 'Transacción pública en Stellar testnet',
+    link: 'Ver en Solana', linkTitle: 'Transacción pública en Solana',
     labelIssued: 'Etiqueta emitida', transferredTo: 'Transferido al usuario {to}'
   }
   ,
@@ -147,7 +147,7 @@ const es = {
     subject: 'Garantía de {model} ({token})',
     noEmail: 'La empresa todavía no configuró un correo de soporte. Volvé a intentarlo más tarde.',
     unknownCompany: 'No disponible',
-    certificate: 'Ver certificado en Stellar', missing: 'No disponible'
+    certificate: 'Ver certificado en Solana', missing: 'No disponible'
   }
 };
 
@@ -197,7 +197,7 @@ const en: Messages = {
     detected: 'Product QR detected. Choose “Activate Official Warranty” to register it in your name.',
     scanFirst: 'Scan the QR on the product’s inner label first.',
     working: 'Checking the QR and preparing your warranty...',
-    doneOnChain: 'The warranty for {model} is now recorded on Stellar in your name.',
+    doneOnChain: 'The warranty for {model} is now recorded on Solana in your name.',
     done: 'The warranty for {model} is now active in your name.',
     publicQr: 'That is the product’s public QR: it is for checking the product. To activate the warranty, scan the QR on the inner label.',
     unknownQr: 'We did not recognise that QR as a Verifire QR.',
@@ -220,18 +220,18 @@ const en: Messages = {
     eyebrow: 'Change of owner',
     title: 'Someone sent you a product',
     product: 'Product', code: 'Code', owner: 'Current owner',
-    note: 'When you accept, the warranty and the product history move to your account, and the change of owner is recorded on Stellar. Your Cavos wallet signs the acceptance: you pay no fees.',
+    note: 'When you accept, the warranty and the product history move to your account, and the change of owner is recorded on Solana. Your wallet signs the acceptance: you pay no fees.',
     expired: 'This link has expired. Ask the owner to generate a new one.',
     expiresIn: 'The link expires in',
     accept: 'Accept transfer', discard: 'Dismiss',
     reading: 'Reading the transfer link...',
-    accepted: 'Done. {model} is now in your name. The change of owner is recorded on Stellar.',
+    accepted: 'Done. {model} is now in your name. The change of owner is recorded on Solana.',
     given: '{model}: this product was transferred to user {to}. It is recorded in its history.'
   },
   card: {
     claimedAt: 'Claim date', coverage: 'Coverage period', until: 'Official warranty until',
-    certificate: 'View certificate on Stellar',
-    certificateTitle: 'Public transaction that certified this warranty in the Verifire contract (Stellar testnet)',
+    certificate: 'View certificate on Solana',
+    certificateTitle: 'Public transaction that certified this warranty in the Verifire program on Solana',
     history: 'Product history',
     transfer: 'Transfer to someone else', newLink: 'Generate a new link', cancel: 'Cancel transfer',
     qrAlt: 'QR of the transfer link', copy: 'Copy link', copied: 'Link copied',
@@ -267,8 +267,8 @@ const en: Messages = {
     transferred: 'Products you transferred',
     transferredBadge: 'Transferred',
     transferredNote: 'This product was transferred to user {to} on {date}. The warranty remains valid in their name.',
-    transferLink: 'View the transfer on Stellar',
-    transferTitle: 'Public transaction of the change of owner (Stellar testnet)',
+    transferLink: 'View the transfer on Solana',
+    transferTitle: 'Public transaction of the change of owner on Solana',
     empty: 'You have no warranties registered yet. Scan the QR of your product above to claim your certificate of authenticity.',
     pagesActive: 'Pages of active warranties', pagesTransferred: 'Pages of transferred products',
     previous: 'Previous', next: 'Next', pageOf: 'Page {page} of {pages}', closeNotice: 'Close notice',
@@ -287,7 +287,7 @@ const en: Messages = {
   history: {
     minted: 'Registered in the contract', shipped: 'Shipped to its destination', verified: 'Checked with the public QR',
     activated: 'Warranty activated with the secret QR', rejected: 'Activation rejected', transferred: 'Transferred to another user',
-    link: 'View on Stellar', linkTitle: 'Public transaction on Stellar testnet',
+    link: 'View on Solana', linkTitle: 'Public transaction on Solana',
     labelIssued: 'Label issued', transferredTo: 'Transferred to user {to}'
   }
   ,
@@ -299,7 +299,7 @@ const en: Messages = {
     subject: 'Warranty of {model} ({token})',
     noEmail: 'The company has not set a support email yet. Please try again later.',
     unknownCompany: 'Unavailable',
-    certificate: 'View certificate on Stellar', missing: 'Unavailable'
+    certificate: 'View certificate on Solana', missing: 'Unavailable'
   }
 };
 

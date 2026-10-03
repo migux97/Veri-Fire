@@ -8,6 +8,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     rateLimit('claims', clientAddress, 20);
     return json(await prepareClaim(await readJsonBody(request, 'Claim request error:')));
   } catch (error) {
-    return errorResponse(error, 502, 'No se pudo preparar la activación en Stellar.', 'Stellar prepare error:');
+    return errorResponse(error, 502, 'No se pudo preparar la activación en la blockchain.', 'Chain prepare error:');
   }
 };

@@ -12,10 +12,10 @@ import { CompanyRoleSettings } from './CompanyRoleSettings';
 import { CompanyWarrantySettings } from './CompanyWarrantySettings';
 import { CompanyTextProvider, useCompanyText } from './CompanyText';
 
-export function CompanySettings({ locale = 'es', cavosAppId = '' }: { locale?: Locale | undefined; cavosAppId?: string }) {
+export function CompanySettings({ locale = 'es' }: { locale?: Locale | undefined }) {
   return (
     <CompanyTextProvider locale={locale}>
-      <Settings cavosAppId={cavosAppId} />
+      <Settings />
     </CompanyTextProvider>
   );
 }
@@ -58,7 +58,7 @@ function Card({ icon, title, lead, badge, children }: { icon: string; title: str
   );
 }
 
-function Settings({ cavosAppId }: { cavosAppId: string }) {
+function Settings() {
   const t = useCompanyText();
   const text = t.settings;
   const [motion, setMotion] = useState(true);
@@ -93,11 +93,11 @@ function Settings({ cavosAppId }: { cavosAppId: string }) {
 
   return (
     <div className="settings-grid">
-      <CompanyProfileSettings cavosAppId={cavosAppId} />
-      <CompanyBrandSettings cavosAppId={cavosAppId} />
-      <CompanyVerification cavosAppId={cavosAppId} />
+      <CompanyProfileSettings />
+      <CompanyBrandSettings />
+      <CompanyVerification />
 
-      <CompanyWarrantySettings cavosAppId={cavosAppId} />
+      <CompanyWarrantySettings />
 
       <Card icon="fa-palette" title={text.appearance.title} lead={text.appearance.lead}>
         <Row title={text.appearance.motion} help={systemReduced && motion ? text.appearance.motionSystem : text.appearance.motionHelp}>

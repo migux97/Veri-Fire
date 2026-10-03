@@ -1,6 +1,6 @@
 import { Icon } from './Icon';
 
-// A payment QR can always be paid again: Stellar has no way to revoke an address.
+// A payment QR can always be paid again: a Solana Pay request cannot be revoked once shared.
 export function PaymentWarning({ as: Element = 'p', text }: { as?: 'p' | 'span'; text?: string | undefined }) {
   return (
     <Element className="payment-warning">

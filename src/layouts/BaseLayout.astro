@@ -4,7 +4,9 @@ import '@/styles/brand.css';
 import '@/styles/global.css';
 import { Font } from 'astro:assets';
 import SessionGate from '@/components/layout/SessionGate.astro';
+import { PrivyBridge } from '@/components/wallet/PrivyBridge';
 import { MOTION_KEY, THEME_KEY } from '@/lib/client/theme';
+import { publicConfig } from '@/lib/server/config';
 import { pageLocale } from '@/lib/server/page-locale';
 
 interface Props {
@@ -44,5 +46,7 @@ const { title, description, bodyClass, session = 'public', lang } = Astro.props;
   </head>
   <body class={bodyClass}>
     <slot />
+    <!-- The wallet is Privy's: every page mounts its bridge, so any island can log in and sign. -->
+    <PrivyBridge client:only="react" appId={publicConfig.privyAppId} cluster={publicConfig.solanaCluster} />
   </body>
 </html>

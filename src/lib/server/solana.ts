@@ -1,15 +1,15 @@
-// Access to the VeriFire program on Solana (solana/programs/verifire_product). The Solana counterpart of stellar.ts,
-// with the same flows: the server registers products, and builds the transactions a user's wallet signs, paying their
-// fees. Holds the minter key: never import it in the browser.
+// Access to the VeriFire program on Solana (solana/programs/verifire_product): the server registers products, and
+// builds the transactions a user's wallet signs, paying their fees. Holds the minter key: never import it in the browser.
 // Products are addressed by their public code (the program's PDA seed), so there is no second token id to keep in sync.
 import {
-  address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
+  AccountRole, address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
   createTransactionMessage, decompileTransactionMessage, getBase58Decoder, getBase58Encoder, getBase64EncodedWireTransaction,
   getBase64Encoder, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, getTransactionDecoder, isAddress,
   partiallySignTransaction, pipe, setTransactionMessageFeePayer, setTransactionMessageLifetimeUsingBlockhash,
   signatureBytes, verifySignature,
   type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Transaction
 } from '@solana/kit';
+import { fetchMint, findAssociatedTokenPda, getTransferCheckedInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { HttpError } from './errors.ts';
 import { messages } from './messages.ts';
 import {
@@ -228,6 +228,20 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
 
   const signatureFor = (key: Uint8Array, signature: Uint8Array, message: Uint8Array) => ed25519Instruction(key, signature, message);
 
+  // Decimals of each token mint, read once.
+  const decimals = new Map<string, Promise<number>>();
+  const decimalsOf = (mint: Address) => {
+    if (!decimals.has(mint)) decimals.set(mint, fetchMint(rpc, mint).then((account) => account.data.decimals));
+    return decimals.get(mint) as Promise<number>;
+  };
+
+  const paymentInstruction = async ({ payer, recipient, mint, amount, reference }: TokenPayment): Promise<Instruction> => {
+    const [source] = await findAssociatedTokenPda({ owner: payer, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
+    const [destination] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
+    const transfer = getTransferCheckedInstruction({ source, mint, destination, authority: payer, amount, decimals: await decimalsOf(mint) });
+    return { ...transfer, accounts: [...transfer.accounts, { address: reference, role: AccountRole.READONLY }] };
+  };
+
   return {
     rpc,
     enabled,
@@ -346,8 +360,53 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
       }, 'La transferencia');
       if ((await requireProduct(code)).owner !== recipient) throw new Error(`La transacción ${signature} no dejó el producto a nombre de ${recipient}.`);
       return signature;
+    },
+
+    // Solana Pay (https://docs.solanapay.com): a token transfer to the treasury that carries the purchase's reference
+    // key as an extra read-only account, so the payment is found by that key whichever wallet sent it.
+    tokenDecimals: (mint: Address) => decimalsOf(mint),
+
+    buildPayment: async (payment: TokenPayment) => buildUserCall([await paymentInstruction(payment)], 'El pago'),
+
+    submitPayment: async ({ signedTx, ...payment }: TokenPayment & { signedTx: string }) =>
+      submitUserCall(signedTx, payment.payer, async () => [await paymentInstruction(payment)], 'El pago'),
+
+    // The signature of a confirmed transaction that carries the reference and moved at least `amount` of the token to
+    // the recipient's wallet, or null when there is none yet.
+    findPayment: async ({ recipient, mint, amount, reference }: Omit<TokenPayment, 'payer'>) => {
+      const found = await rpc.getSignaturesForAddress(reference, { commitment: 'confirmed', limit: 20 }).send();
+      for (const { signature, err } of found) {
+        if (err) continue;
+        const tx = await rpc.getTransaction(signature, { commitment: 'confirmed', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }).send();
+        if (!tx?.meta || tx.meta.err) continue;
+        if (receivedBy(tx.meta, recipient, mint) >= amount) return signature as string;
+      }
+      return null;
     }
   };
+
+};
+
+export interface TokenPayment {
+  payer: Address;
+  recipient: Address;
+  mint: Address;
+  // In the token's base units (USDC has 6 decimals).
+  amount: bigint;
+  reference: Address;
+}
+
+interface TokenBalance {
+  owner?: string;
+  mint: string;
+  uiTokenAmount: { amount: string };
+}
+
+// How much of `mint` the wallet `owner` received in a transaction, in base units.
+export const receivedBy = (meta: { preTokenBalances?: readonly TokenBalance[] | null; postTokenBalances?: readonly TokenBalance[] | null }, owner: string, mint: string) => {
+  const total = (balances: readonly TokenBalance[] | null | undefined) =>
+    (balances ?? []).filter((balance) => balance.owner === owner && balance.mint === mint).reduce((sum, balance) => sum + BigInt(balance.uiTokenAmount.amount), 0n);
+  return total(meta.postTokenBalances) - total(meta.preTokenBalances);
 };
 
 export interface ProductToMint {
@@ -359,3 +418,10 @@ export interface ProductToMint {
 }
 
 export type SolanaClient = ReturnType<typeof createSolanaClient>;
+
+// "12.5" with 6 decimals -> 12500000n. Digits beyond the token's decimals are dropped, never rounded up.
+export const toBaseUnits = (amount: string, decimals: number) => {
+  if (!/^\d+(\.\d+)?$/.test(amount)) throw new Error(`Monto inválido: ${amount}`);
+  const [whole = '0', fraction = ''] = amount.split('.');
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt((fraction + '0'.repeat(decimals)).slice(0, decimals) || '0');
+};

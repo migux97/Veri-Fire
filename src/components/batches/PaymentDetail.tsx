@@ -8,7 +8,7 @@ interface PaymentDetailProps {
   summary: PurchaseSummary;
 }
 
-// A purchase still waiting for its payment: the Cosmos Pay QR, kept so it can be paid from the list.
+// A purchase still waiting for its payment: the Solana Pay QR, kept so it can be paid from the list.
 export function PaymentDetail({ summary }: PaymentDetailProps) {
   const t = useCompanyText();
   const text = t.batches.payment;
@@ -26,8 +26,6 @@ export function PaymentDetail({ summary }: PaymentDetailProps) {
       {summary.payment?.uri && (
         <WalletPayButton
           purchaseId={summary.purchaseId}
-          uri={summary.payment.uri}
-          network={summary.payment.network ?? 'testnet'}
           // The list reads the purchase again, so the batch shows up without waiting for the next check.
           onPaid={(status) => setSummary(summary.purchaseId, status.purchase)}
         />

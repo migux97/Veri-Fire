@@ -714,7 +714,7 @@ kbd {
   font-weight: 700;
 }
 
-/* Link to the public Stellar transaction behind a warranty or a batch. */
+/* Link to the public Solana transaction behind a warranty or a batch. */
 .ledger-link {
   display: inline-flex;
   align-items: center;
@@ -1408,7 +1408,7 @@ a.network-status:hover {
   gap: 10px;
 }
 
-/* A payment QR can always be paid again: Stellar has no way to revoke an address */
+/* A payment QR can always be paid again: a Solana Pay request cannot be revoked once shared */
 
 .payment-warning {
   display: flex;

@@ -10,7 +10,7 @@ import { VerificationList, type Decision } from './VerificationList';
 
 type Phase = 'loading' | 'denied' | 'ready' | 'error';
 
-export function VerificationAdmin({ cavosAppId }: { cavosAppId: string }) {
+export function VerificationAdmin() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [companies, setCompanies] = useState<CompanyForReview[]>([]);
   const [message, setMessage] = useState('');
@@ -19,7 +19,7 @@ export function VerificationAdmin({ cavosAppId }: { cavosAppId: string }) {
   const load = async () => {
     setPhase('loading');
     try {
-      setCompanies(await listCompaniesForReview(cavosAppId));
+      setCompanies(await listCompaniesForReview());
       setPhase('ready');
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
@@ -39,12 +39,12 @@ export function VerificationAdmin({ cavosAppId }: { cavosAppId: string }) {
   const decide = async (task: () => Promise<unknown>, done: string) => {
     await task();
     setNotice(done);
-    setCompanies(await listCompaniesForReview(cavosAppId));
+    setCompanies(await listCompaniesForReview());
   };
 
   const decision: Decision = {
-    approve: (company, { name, domain }) => decide(() => approveCompany(cavosAppId, company.owner, { name, domain }), `${name} quedó verificada.`),
-    reject: (company, note) => decide(() => rejectCompany(cavosAppId, company.owner, note), `${company.companyName || 'La empresa'} quedó sin verificación.`)
+    approve: (company, { name, domain }) => decide(() => approveCompany(company.owner, { name, domain }), `${name} quedó verificada.`),
+    reject: (company, note) => decide(() => rejectCompany(company.owner, note), `${company.companyName || 'La empresa'} quedó sin verificación.`)
   };
 
   if (phase === 'loading') return <p className="vadmin-status" role="status">Leyendo las empresas… Tu billetera firma el pedido.</p>;

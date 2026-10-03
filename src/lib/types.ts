@@ -3,17 +3,17 @@ import type { IssuanceOptions } from './issuance';
 
 export type ProductStatus = 'SEALED' | 'CLAIMED_IN_WARRANTY';
 
-// Moments of a product's life, oldest first. Registration, activation and transfers are Stellar transactions.
+// Moments of a product's life, oldest first. Registration, activation and transfers are Solana transactions.
 export type HistoryKind = 'minted' | 'shipped' | 'verified' | 'activated' | 'rejected' | 'transferred';
 
 export interface HistoryEvent {
   kind: HistoryKind;
   at: string;
-  // Short context: the lot, the destination, or owners as shortened Stellar addresses (G...XXXX).
+  // Short context: the lot, the destination, or owners as shortened Solana addresses.
   detail: string | null;
-  // The Stellar transaction behind the event, when there is one.
+  // The Solana transaction behind the event, when there is one.
   txUrl: string | null;
-  // Transfers: the new owner, as a shortened Stellar address.
+  // Transfers: the new owner, as a shortened Solana address.
   to: string | null;
 }
 
@@ -186,7 +186,7 @@ export interface CompanyBatch extends BatchBase {
   configuration?: IssuanceOptions;
   publicQr: string;
   tokens: ProductLabel[];
-  payment: { amount: string; asset: 'XLM'; pricePerToken: string };
+  payment: { amount: string; asset: 'USDC'; pricePerToken: string };
 }
 
 // What the company's list of batches shows for a purchase: no secret codes and no QR images.
@@ -197,12 +197,12 @@ export interface PurchaseSummary {
   destination: string;
   quantity: number;
   amount: string;
-  asset: 'XLM';
+  asset: 'USDC';
   createdAt: string | null;
   batchId: string | null;
   // The payment QR, kept so a pending purchase can be paid from the list. Null once the batch exists.
-  // network: where the payment is made, for paying from a browser wallet (a dv_ key pays on testnet).
-  payment: { qr: string | null; uri: string | null; network?: 'public' | 'testnet' } | null;
+  // network: the Solana cluster where the payment is made.
+  payment: { qr: string | null; uri: string | null; network?: string } | null;
   issuanceTxUrl: string | null;
   registeredOnChain: number;
   pendingOnChain: number;
@@ -222,7 +222,7 @@ export interface CreatedPurchase {
   quantity: number;
   amount: string;
   asset: string;
-  intentId: string;
+  reference: string;
   status: string;
   network: string;
   uri: string;
@@ -261,7 +261,12 @@ export interface CountryOption {
   destination: string;
 }
 
-export type PreparedClaim = { onChain: false } | { onChain: true; message: string; feeAccount: string };
+export type PreparedClaim = { onChain: false } | { onChain: true; message: string };
+
+// An unsigned transaction for the user's wallet: a base64 wire transaction.
+export interface UnsignedTransaction {
+  tx: string;
+}
 
 // What a transfer link offers, shown to the recipient before accepting, and the message the link's key must sign.
 export interface PreparedTransfer {
@@ -269,7 +274,6 @@ export interface PreparedTransfer {
   model: string;
   from: string;
   message: string;
-  feeAccount: string;
   expiresAt: string;
   // The time left, measured by the server: the recipient's clock may be off by minutes.
   expiresInMs: number;

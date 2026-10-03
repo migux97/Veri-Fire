@@ -1,7 +1,7 @@
 // Asking for a verification and deciding on it. A company asks with its own wallet's signature; deciding, and even
 // reading the list of companies, needs the signature of a wallet listed in ADMIN_WALLETS. See verification.ts.
 import type { CompanyForReview } from '../types';
-import { isStellarAddress } from '../validation';
+import { isWalletAddress } from '../validation';
 import { config } from './config';
 import { HttpError } from './errors';
 import { saveState, store, type Verification, type Workspace } from './store';
@@ -123,7 +123,7 @@ export const companiesForReview = (): CompanyForReview[] =>
 export const decideVerification = (admin: string, target: unknown, action: 'approve' | 'reject', input: { name?: unknown; domain?: unknown; note?: unknown }) => {
   assertAdmin(admin);
   const owner = typeof target === 'string' ? target : '';
-  const workspace = isStellarAddress(owner) ? store.workspaces.get(owner) : undefined;
+  const workspace = isWalletAddress(owner) ? store.workspaces.get(owner) : undefined;
   if (!workspace) throw new HttpError(404, 'No encontramos esa empresa.');
   const previous = workspace.verification;
   const decidedAt = new Date().toISOString();

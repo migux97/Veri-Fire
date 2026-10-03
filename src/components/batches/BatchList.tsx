@@ -153,7 +153,7 @@ function Batches({ pageSize, layout }: { pageSize: number; layout: 'list' | 'gri
     }
   };
 
-  // Purchases waiting for their payment or for Stellar are checked every POLL_MS; every batch once a minute, so the
+  // Purchases waiting for their payment or for Solana are checked every POLL_MS; every batch once a minute, so the
   // activation counters follow what customers scan.
   const schedulePolling = () => {
     window.clearTimeout(pollTimer.current);

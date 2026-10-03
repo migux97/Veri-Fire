@@ -4,7 +4,7 @@ import { rateLimit } from '@/lib/server/rate-limit';
 import { issueNonce } from '@/lib/server/wallet-auth';
 
 // Step one of reading or writing a company account: the server hands out a nonce that the browser signs with its
-// Cavos wallet. It says nothing about the account, so asking for one reveals nothing.
+// Privy wallet. It says nothing about the account, so asking for one reveals nothing.
 export const POST: APIRoute = async ({ request, clientAddress }) => {
   try {
     rateLimit('workspace-challenge', clientAddress, 30);

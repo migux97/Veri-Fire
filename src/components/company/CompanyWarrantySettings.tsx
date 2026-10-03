@@ -11,7 +11,7 @@ import { errorMessage } from '@/lib/errors';
 import { useCompanyText } from './CompanyText';
 
 // Rendered inside the settings island, which provides the texts.
-export function CompanyWarrantySettings({ cavosAppId }: { cavosAppId: string }) {
+export function CompanyWarrantySettings() {
   const t = useCompanyText();
   const text = t.settings.warranty;
   const [email, setEmail] = useState('');
@@ -62,7 +62,7 @@ export function CompanyWarrantySettings({ cavosAppId }: { cavosAppId: string }) 
       setSaved({ email: normalized, months });
       setNotice({ text: text.saved(updated), tone: 'success' });
       // The support email is part of the published brand: it follows, when there is one.
-      void refreshPublishedBrand(cavosAppId).catch((error: unknown) => {
+      void refreshPublishedBrand().catch((error: unknown) => {
         setNotice({ text: `${t.settings.brand.refreshFailed} ${errorMessage(error)}`, tone: 'error' });
       });
     } catch (error) {

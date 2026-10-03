@@ -1,13 +1,14 @@
 // Warranty claims.
-// On Stellar, in three steps, and the secret never reaches the server: the product is found by its activation key.
+// On-chain (see ledger.ts), in three steps, and the secret never reaches the server: the product is found by its activation key.
 // 1. prepareClaim: the browser derives the activation key from the QR and gets the message to sign with it.
 // 2. buildClaimTransaction: with that signature the server builds the activation; the buyer's wallet authorizes it.
-// 3. submitOnChainClaim with signedXdr: the issuing account submits it and the claim is saved with its hash.
+// 3. submitOnChainClaim with signedTx: the server pays and submits it, and the claim is saved
+//    with its transaction.
 // Without a contract (demo mode) the secret read from the QR identifies the product and the claim stays in this server.
 import { randomUUID } from 'node:crypto';
-import type { ClaimPreview, PreparedClaim, Warranty } from '../types';
-import { isStellarAddress, normalizeId } from '../validation';
-import { chain } from './chain';
+import type { ClaimPreview, PreparedClaim, UnsignedTransaction, Warranty } from '../types';
+import { normalizeId } from '../validation';
+import { chain, refOf } from './chain';
 import { reconcileProduct } from './chain-sync';
 import { HttpError } from './errors';
 import { textField, type JsonBody } from './http';
@@ -29,10 +30,10 @@ const claimsInFlight = singleton('claims-in-flight', () => new Set<string>());
 const assertClaimable = (product: Product, owner: string) => {
   if (product.claimed) {
     if (product.owner === owner) throw new HttpError(409, 'Esta garantía ya está activada a tu nombre.');
-    if (isStellarAddress(owner)) recordRejectedClaim(product, owner);
+    if (chain.isAddress(owner)) recordRejectedClaim(product, owner);
     throw new HttpError(409, messages.alreadyClaimed);
   }
-  if (!isStellarAddress(owner)) throw new HttpError(400, messages.invalidOwner);
+  if (!chain.isAddress(owner)) throw new HttpError(400, messages.invalidOwner);
 };
 
 // Whether the buyer asked, when activating, to show the product on the home page. It counts only for a product that can
@@ -62,47 +63,51 @@ const completeClaim = (product: Product, owner: string, baseUrl: string, showcas
 
 // Checks shared by the three on-chain steps.
 const onChainClaim = async (body: JsonBody) => {
-  if (!chain.enabled) throw new HttpError(409, 'La activación en Stellar no está configurada en este servidor.');
+  if (!chain.enabled) throw new HttpError(409, `La activación en Solana no está configurada en este servidor.`);
   const key = textField(body, 'activationKey').toLowerCase();
   const found = /^[0-9a-f]{64}$/.test(key) ? [...store.products.values()].find((candidate) => activationKeyOf(candidate) === key) : undefined;
   if (!found) throw new HttpError(404, messages.qrNotFound);
   // An activation that landed after this server stopped waiting for it is adopted here, so the buyer sees the
-  // warranty instead of "ya fue reclamado en Stellar" with no way out. Not while this server is submitting one for the
+  // warranty instead of "ya fue reclamado en Solana" with no way out. Not while this server is submitting one for the
   // product: the contract already shows it, and adopting it then made the submission itself fail as "ya activada".
   const product = claimsInFlight.has(found.token) ? found : await reconcileProduct(found);
   const owner = textField(body, 'owner').trim();
   assertClaimable(product, owner);
   if (!isCurrentOnChain(product)) {
     anchorPendingProducts();
-    throw new HttpError(409, 'Este producto todavía se está registrando en Stellar. Probá de nuevo en unos minutos.', { retryable: true });
+    throw new HttpError(409, `Este producto todavía se está registrando en Solana. Probá de nuevo en unos minutos.`, { retryable: true });
   }
-  return { product, owner, tokenId: product.chain.tokenId };
+  return { product, owner, ref: refOf(product) };
 };
 
 export const prepareClaim = async (body: JsonBody): Promise<PreparedClaim> => {
   // Without a contract the browser falls back to the demo claim.
   if (!chain.enabled) return { onChain: false };
-  const { tokenId, owner } = await onChainClaim(body);
-  const message = await chain.activationMessage(tokenId, owner);
-  // feeAccount: an existing account for the payment with which the Cavos kit creates a new buyer account.
-  return { onChain: true, message: message.toString('base64'), feeAccount: chain.issuerAddress() };
+  const { ref, owner } = await onChainClaim(body);
+  const message = await chain.activationMessage(ref, owner);
+  return { onChain: true, message: message.toString('base64') };
 };
 
+// The transaction the user's wallet signed, as the browser sends it.
+export const signedTxOf = (body: JsonBody) => textField(body, 'signedTx');
+
+export const unsigned = (tx: string): UnsignedTransaction => ({ tx });
+
 export const buildClaimTransaction = async (body: JsonBody) => {
-  const { tokenId, owner } = await onChainClaim(body);
+  const { ref, owner } = await onChainClaim(body);
   const signature = Buffer.from(textField(body, 'signature'), 'base64');
   if (signature.length !== 64) throw new HttpError(400, 'La firma del QR no es válida.');
-  return { xdr: await chain.buildActivation({ tokenId, claimant: owner, signature }) };
+  return unsigned(await chain.buildActivation({ ref, claimant: owner, signature }));
 };
 
 export const submitOnChainClaim = async (body: JsonBody, baseUrl: string) => {
-  const { product, owner, tokenId } = await onChainClaim(body);
+  const { product, owner, ref } = await onChainClaim(body);
   if (claimsInFlight.has(product.token)) {
-    throw new HttpError(409, 'La activación de este producto ya se está registrando en Stellar.', { retryable: true });
+    throw new HttpError(409, `La activación de este producto ya se está registrando en Solana.`, { retryable: true });
   }
   claimsInFlight.add(product.token);
   try {
-    const txHash = await chain.submitActivation({ tokenId, claimant: owner, signedXdr: textField(body, 'signedXdr') });
+    const txHash = await chain.submitActivation({ ref, claimant: owner, signedTx: signedTxOf(body) });
     // Adopted meanwhile by another path that reads the contract (a transfer check): it only lacks its transaction.
     if (product.claimed && product.owner === owner) {
       const showcase = wantsShowcase(body, product) && !product.showcase;
@@ -126,7 +131,7 @@ export const claimDemoWarranty = (body: JsonBody, baseUrl: string) => {
   // Products with a secret code are activated in the contract once it is configured, never only locally.
   // Already claimed ones fall through, so completeClaim answers "ya fue reclamado".
   if (chain.enabled && product.secretCode && !product.claimed) {
-    throw new HttpError(409, 'Este producto se activa en Stellar. Recargá la página y volvé a escanear el QR.');
+    throw new HttpError(409, `Este producto se activa en Solana. Recargá la página y volvé a escanear el QR.`);
   }
   return completeClaim(product, textField(body, 'owner').trim(), baseUrl, wantsShowcase(body, product));
 };
@@ -142,7 +147,7 @@ export const previewClaim = (body: JsonBody): ClaimPreview => {
 };
 
 export const warrantiesOf = (owner: string, baseUrl: string) => {
-  if (!isStellarAddress(owner)) throw new HttpError(400, messages.invalidOwner);
+  if (!chain.isAddress(owner)) throw new HttpError(400, messages.invalidOwner);
   const warranties = [...store.products.values()]
     .filter((product) => product.claimed && product.owner === owner)
     .sort((first, second) => String(second.claimedAt ?? '').localeCompare(String(first.claimedAt ?? '')))

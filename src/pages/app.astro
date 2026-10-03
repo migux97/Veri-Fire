@@ -6,9 +6,7 @@ import { WorkspaceSync } from '@/components/company/WorkspaceSync';
 import LanguageMenu from '@/components/ui/LanguageMenu.astro';
 import { ProfileMenu } from '@/components/warranties/ProfileMenu';
 import { WarrantyDashboard } from '@/components/warranties/WarrantyDashboard';
-import { RecoveryCard } from '@/components/warranties/RecoveryCard';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { publicConfig } from '@/lib/server/config';
 import { getConsumerMessages } from '@/i18n/consumer';
 import { getLandingMessages } from '@/i18n/landing';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, toLocale } from '@/lib/locale';
@@ -36,9 +34,8 @@ const { profile, nav } = getLandingMessages(locale);
   </AppTopbar>
 
   <main class="container dashboard">
-    <RecoveryCard client:load cavosAppId={publicConfig.cavosAppId} locale={locale} />
-    <WarrantyDashboard client:load cavosAppId={publicConfig.cavosAppId} locale={locale} />
-    <WorkspaceSync client:load cavosAppId={publicConfig.cavosAppId} />
+    <WarrantyDashboard client:load locale={locale} />
+    <WorkspaceSync client:load />
   </main>
 
   <SiteFooter />

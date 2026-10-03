@@ -41,7 +41,7 @@ const slugTaken = (slug: string, owner: string) =>
   [...store.workspaces.values()].some((workspace) => workspace.owner !== owner && workspace.brand?.slug === slug);
 
 // The slug names the logo's public address, so it is chosen once and kept: renaming the company must not break the
-// address that its stellar.toml points to. Another company with the same name gets the end of its wallet added.
+// address buyers already have. Another company with the same name gets the end of its wallet added.
 const slugFor = (owner: string, name: string, current?: Brand) => {
   if (current) return current.slug;
   const base = slugify(name);
@@ -75,8 +75,7 @@ export const logoBytes = (brand: Brand) => {
   return Buffer.from(brand.logo.slice(brand.logo.indexOf(',') + 1), 'base64');
 };
 
-// Relative to the site, like the photos: the page works from whatever address it was opened at. Only the stellar.toml
-// needs the full address, and it is built from the one the workspace answers (see /api/workspace).
+// Relative to the site, like the photos: the page works from whatever address it was opened at.
 export const logoPathOf = (brand: Brand) =>
   brand.logo ? `/api/brand/${encodeURIComponent(brand.slug)}/logo.png?v=${brand.logoVersion ?? ''}` : null;
 

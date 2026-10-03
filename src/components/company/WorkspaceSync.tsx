@@ -11,7 +11,7 @@ import { errorMessage } from '@/lib/errors';
 
 // Keeps the company side of an account with its wallet instead of with one browser: signing in somewhere else finds
 // the same batches and the same kind of account. It draws nothing; the panels read what it leaves in this browser.
-export function WorkspaceSync({ cavosAppId }: { cavosAppId: string }) {
+export function WorkspaceSync() {
   const running = useRef(false);
   // Something changed while a sync was running: one more round when it ends, so the change is not left behind.
   const again = useRef(false);
@@ -27,12 +27,12 @@ export function WorkspaceSync({ cavosAppId }: { cavosAppId: string }) {
       }
       running.current = true;
       try {
-        const owner = await resolveWalletAddress(cavosAppId);
+        const owner = await resolveWalletAddress();
         const account = storedUser();
         // Only a company of its own makes the account a business one: a member of someone else's team would otherwise
         // come back everywhere as the admin of an empty company, losing the team it joined.
         const company = account?.accountType === 'business';
-        const remote = await syncWorkspace(cavosAppId, owner, {
+        const remote = await syncWorkspace(owner, {
           ...(account?.email ? { email: account.email } : {}),
           purchaseIds: savedPurchaseIds(),
           // Removed from the list here: the server stops listing them, so the next sync does not bring them back.
@@ -81,7 +81,7 @@ export function WorkspaceSync({ cavosAppId }: { cavosAppId: string }) {
       window.removeEventListener(PURCHASES_CHANGED_EVENT, onPurchasesChanged);
       window.removeEventListener(ACCOUNT_DATA_WRITTEN_EVENT, onDataWritten);
     };
-  }, [cavosAppId]);
+  }, []);
 
   return null;
 }
