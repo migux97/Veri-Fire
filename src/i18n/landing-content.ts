@@ -48,13 +48,13 @@ const sampleProducts: SampleProduct[] = spanish.sampleProducts.map((product) => 
 const safeguards = [
   { icon: 'fa-solid fa-lock', title: 'Claimed only once', text: 'The contract marks the product as claimed on the first activation. Any copy of the QR code arrives too late.' },
   { icon: 'fa-solid fa-signature', title: 'The signature is tied to an account', text: 'The signed data includes the product and the claiming account. An intercepted signature cannot be used by anyone else.' },
-  { icon: 'fa-solid fa-magnifying-glass', title: 'The record is public', text: 'Owners, destinations, and activations are recorded on Stellar. Anyone can audit them without asking us for permission.' }
+  { icon: 'fa-solid fa-magnifying-glass', title: 'The record is public', text: 'Owners, destinations, and activations are recorded on Solana. Anyone can audit them without asking us for permission.' }
 ];
 
 const faqs = [
   { question: 'What if someone copies the outside label?', answer: 'The public QR code only provides information: it shows the actual product status. A replica using the code of an already activated unit is exposed on the first scan.' },
   { question: 'Does the buyer need a wallet or cryptocurrency?', answer: 'No. They sign in with their email, a wallet is created automatically, and Verifire covers the network fee.' },
-  { question: 'How do I pay for a batch of labels?', answer: 'With Cosmos Pay, in XLM. Once payment is confirmed, each product in the batch is registered in the contract.' },
+  { question: 'How do I pay for a batch of labels?', answer: 'In USDC with Solana Pay, from your Verifire wallet or any Solana wallet. Once payment is confirmed, each product in the batch is registered on Solana.' },
   { question: 'What is stored on the blockchain?', answer: 'The model, batch, destination, owner, and public activation key. The secret code never leaves the label: the phone signs with it, and only the signature is sent.' },
   { question: 'Can I see where my products are activated?', answer: 'Yes. The brand dashboard shows each batch, its activated units, and their destinations.' },
   { question: 'Does it work for products without a warranty?', answer: 'Yes. Activation also serves as a purchase record: it registers the owner even when there is no warranty.' }

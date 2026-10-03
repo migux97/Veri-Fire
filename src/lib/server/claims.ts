@@ -1,8 +1,8 @@
 // Warranty claims.
-// On-chain (Stellar or Solana, see ledger.ts), in three steps, and the secret never reaches the server: the product is found by its activation key.
+// On-chain (see ledger.ts), in three steps, and the secret never reaches the server: the product is found by its activation key.
 // 1. prepareClaim: the browser derives the activation key from the QR and gets the message to sign with it.
 // 2. buildClaimTransaction: with that signature the server builds the activation; the buyer's wallet authorizes it.
-// 3. submitOnChainClaim with signedTx (signedXdr on Stellar): the server pays and submits it, and the claim is saved
+// 3. submitOnChainClaim with signedTx: the server pays and submits it, and the claim is saved
 //    with its transaction.
 // Without a contract (demo mode) the secret read from the QR identifies the product and the claim stays in this server.
 import { randomUUID } from 'node:crypto';
@@ -63,19 +63,19 @@ const completeClaim = (product: Product, owner: string, baseUrl: string, showcas
 
 // Checks shared by the three on-chain steps.
 const onChainClaim = async (body: JsonBody) => {
-  if (!chain.enabled) throw new HttpError(409, `La activación en ${chain.label} no está configurada en este servidor.`);
+  if (!chain.enabled) throw new HttpError(409, `La activación en Solana no está configurada en este servidor.`);
   const key = textField(body, 'activationKey').toLowerCase();
   const found = /^[0-9a-f]{64}$/.test(key) ? [...store.products.values()].find((candidate) => activationKeyOf(candidate) === key) : undefined;
   if (!found) throw new HttpError(404, messages.qrNotFound);
   // An activation that landed after this server stopped waiting for it is adopted here, so the buyer sees the
-  // warranty instead of "ya fue reclamado en Stellar" with no way out. Not while this server is submitting one for the
+  // warranty instead of "ya fue reclamado en Solana" with no way out. Not while this server is submitting one for the
   // product: the contract already shows it, and adopting it then made the submission itself fail as "ya activada".
   const product = claimsInFlight.has(found.token) ? found : await reconcileProduct(found);
   const owner = textField(body, 'owner').trim();
   assertClaimable(product, owner);
   if (!isCurrentOnChain(product)) {
     anchorPendingProducts();
-    throw new HttpError(409, `Este producto todavía se está registrando en ${chain.label}. Probá de nuevo en unos minutos.`, { retryable: true });
+    throw new HttpError(409, `Este producto todavía se está registrando en Solana. Probá de nuevo en unos minutos.`, { retryable: true });
   }
   return { product, owner, ref: refOf(product) };
 };
@@ -85,14 +85,13 @@ export const prepareClaim = async (body: JsonBody): Promise<PreparedClaim> => {
   if (!chain.enabled) return { onChain: false };
   const { ref, owner } = await onChainClaim(body);
   const message = await chain.activationMessage(ref, owner);
-  const feeAccount = chain.feeAccount();
-  return { onChain: true, chain: chain.kind, message: message.toString('base64'), ...(feeAccount ? { feeAccount } : {}) };
+  return { onChain: true, message: message.toString('base64') };
 };
 
-// The signed transaction as the browser sends it: signedTx, or signedXdr from clients made before Solana.
-export const signedTxOf = (body: JsonBody) => textField(body, 'signedTx') || textField(body, 'signedXdr');
+// The transaction the user's wallet signed, as the browser sends it.
+export const signedTxOf = (body: JsonBody) => textField(body, 'signedTx');
 
-export const unsigned = (tx: string): UnsignedTransaction => (chain.kind === 'stellar' ? { tx, xdr: tx } : { tx });
+export const unsigned = (tx: string): UnsignedTransaction => ({ tx });
 
 export const buildClaimTransaction = async (body: JsonBody) => {
   const { ref, owner } = await onChainClaim(body);
@@ -104,7 +103,7 @@ export const buildClaimTransaction = async (body: JsonBody) => {
 export const submitOnChainClaim = async (body: JsonBody, baseUrl: string) => {
   const { product, owner, ref } = await onChainClaim(body);
   if (claimsInFlight.has(product.token)) {
-    throw new HttpError(409, `La activación de este producto ya se está registrando en ${chain.label}.`, { retryable: true });
+    throw new HttpError(409, `La activación de este producto ya se está registrando en Solana.`, { retryable: true });
   }
   claimsInFlight.add(product.token);
   try {
@@ -132,7 +131,7 @@ export const claimDemoWarranty = (body: JsonBody, baseUrl: string) => {
   // Products with a secret code are activated in the contract once it is configured, never only locally.
   // Already claimed ones fall through, so completeClaim answers "ya fue reclamado".
   if (chain.enabled && product.secretCode && !product.claimed) {
-    throw new HttpError(409, `Este producto se activa en ${chain.label}. Recargá la página y volvé a escanear el QR.`);
+    throw new HttpError(409, `Este producto se activa en Solana. Recargá la página y volvé a escanear el QR.`);
   }
   return completeClaim(product, textField(body, 'owner').trim(), baseUrl, wantsShowcase(body, product));
 };

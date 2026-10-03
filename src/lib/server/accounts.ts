@@ -6,7 +6,7 @@
 // recorded by the account's own panel, signed with its wallet (see /api/workspace). A wrong record would only send
 // someone to the login, and logging in with the email and its code reaches that email's own account anyway.
 import { createHmac } from 'node:crypto';
-import { isOwnerAddress } from './chain-kind';
+import { isWalletAddress } from '../validation';
 import { saveState, store } from './store';
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
@@ -23,7 +23,7 @@ export const isRegistered = (email: unknown) => {
 // Called with every signed sync of an account's panel: it records the email once and changes nothing afterwards.
 export const recordAccount = (email: unknown, owner: string) => {
   const normalized = normalize(email);
-  if (!EMAIL.test(normalized) || !isOwnerAddress(owner)) return;
+  if (!EMAIL.test(normalized) || !isWalletAddress(owner)) return;
   const key = keyOf(normalized);
   if (store.accounts.has(key)) return;
   store.accounts.set(key, { owner, at: new Date().toISOString() });

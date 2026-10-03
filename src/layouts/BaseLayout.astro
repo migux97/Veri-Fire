@@ -19,8 +19,6 @@ interface Props {
 }
 
 const { title, description, bodyClass, session = 'public', lang } = Astro.props;
-// On Solana the wallet is Privy's: the client reads the network from these tags and every page mounts its bridge.
-const onSolana = publicConfig.chain === 'solana';
 ---
 
 <!doctype html>
@@ -29,7 +27,6 @@ const onSolana = publicConfig.chain === 'solana';
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta name="verifire-chain" content={publicConfig.chain} />
     <title>{title}</title>
     <script is:inline define:vars={{ THEME_KEY, MOTION_KEY }}>
       try {
@@ -49,6 +46,7 @@ const onSolana = publicConfig.chain === 'solana';
   </head>
   <body class={bodyClass}>
     <slot />
-    {onSolana && <PrivyBridge client:only="react" appId={publicConfig.privyAppId} cluster={publicConfig.solanaCluster} />}
+    <!-- The wallet is Privy's: every page mounts its bridge, so any island can log in and sign. -->
+    <PrivyBridge client:only="react" appId={publicConfig.privyAppId} cluster={publicConfig.solanaCluster} />
   </body>
 </html>

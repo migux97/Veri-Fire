@@ -8,7 +8,6 @@ import { deriveSigningKey, signWith, type SigningKey } from './activation';
 import { bytesToBase64Url } from './bytes';
 import { accountKey } from './session';
 import { readStored, writeStored } from './storage';
-import { chainLabel, walletLabel } from './chain';
 import { connectSigner, type Progress, type Signer } from './signer';
 
 type Step = UnsignedTransaction | { warranty: Warranty };
@@ -37,28 +36,28 @@ export const savedTransferLink = (token: string) => {
 const signedCall = async (url: string, body: Record<string, string>, wallet: Signer, fallback: string, onProgress: Progress) => {
   const unsigned = await postJson<Step>(url, body, fallback);
   if (!('tx' in unsigned)) throw new Error(fallback);
-  onProgress(`Autorizando con ${walletLabel()}...`);
+  onProgress(`Autorizando con tu wallet...`);
   const signedTx = await wallet.signTransaction(unsigned.tx);
-  onProgress(`Registrando el cambio en ${chainLabel()}. Puede tardar unos segundos...`);
+  onProgress(`Registrando el cambio en Solana. Puede tardar unos segundos...`);
   const done = await postJson<Step>(url, { ...body, signedTx }, fallback);
   if (!('warranty' in done)) throw new Error(fallback);
   return done.warranty;
 };
 
-const connect = (appId: string, address: string, onProgress: Progress) => connectSigner(appId, address, onProgress);
+const connect = (address: string, onProgress: Progress) => connectSigner(address, onProgress);
 
 // Opens a new link for the product. It replaces the previous one, which stops working.
-export const offerTransfer = async (appId: string, token: string, owner: string, onProgress: Progress) => {
+export const offerTransfer = async (token: string, owner: string, onProgress: Progress) => {
   const secret = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(16)));
   const key = await deriveSigningKey(TRANSFER_DOMAIN, secret);
-  const wallet = await connect(appId, owner, onProgress);
+  const wallet = await connect(owner, onProgress);
   const warranty = await signedCall('/api/transfers/offer', { token, owner, transferKey: key.publicKey }, wallet, 'No se pudo abrir el link de transferencia.', onProgress);
   saveLink(token, secret);
   return { warranty, link: transferLinkUrl(secret) };
 };
 
-export const cancelTransfer = async (appId: string, token: string, owner: string, onProgress: Progress) => {
-  const wallet = await connect(appId, owner, onProgress);
+export const cancelTransfer = async (token: string, owner: string, onProgress: Progress) => {
+  const wallet = await connect(owner, onProgress);
   const warranty = await signedCall('/api/transfers/cancel', { token, owner }, wallet, 'No se pudo cancelar la transferencia.', onProgress);
   saveLink(token, null);
   return warranty;
@@ -77,9 +76,8 @@ export const readTransferLink = async (secret: string, recipient: string): Promi
   return { ...prepared, expiresAt, key };
 };
 
-export const acceptTransfer = async (appId: string, incoming: IncomingTransfer, recipient: string, onProgress: Progress) => {
-  const wallet = await connect(appId, recipient, onProgress);
-  await wallet.prepare(onProgress);
+export const acceptTransfer = async (incoming: IncomingTransfer, recipient: string, onProgress: Progress) => {
+  const wallet = await connect(recipient, onProgress);
   const signature = await signWith(incoming.key, incoming.message);
   return signedCall('/api/transfers/accept', { transferKey: incoming.key.publicKey, recipient, signature }, wallet, 'No se pudo completar la transferencia.', onProgress);
 };

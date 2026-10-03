@@ -1,8 +1,8 @@
-// Certificados de VeriFire en Solana: port del contrato Soroban de contracts/verifire_product.
+// Certificados de VeriFire en Solana.
 //
 // Cada producto es una cuenta PDA ["product", código público]. Al emitir solo se registra la clave pública ed25519
-// derivada del secreto impreso dentro de la caja: seed = sha256("verifire-activation-v1:" + secreto), igual que en
-// Stellar, así que los QR ya impresos siguen sirviendo. Quien activa demuestra que tiene el secreto firmando, con esa
+// derivada del secreto impreso dentro de la caja: seed = sha256("verifire-activation-v1:" + secreto), la misma
+// derivación que usa el navegador, así que el secreto nunca viaja a la red. Quien activa demuestra que tiene el secreto firmando, con esa
 // clave, un mensaje que ata este programa, el producto y su propia cuenta (anti front-running). La firma la verifica
 // el programa nativo Ed25519SigVerify en la instrucción anterior de la misma transacción; este programa la lee por
 // introspección del sysvar Instructions. Los links de transferencia funcionan igual con su propio dominio.
@@ -77,7 +77,7 @@ pub mod verifire_product {
         Ok(())
     }
 
-    /// Trae un producto ya activado con su dueño (migración desde Stellar o desde otro deploy). Solo el admin, no la
+    /// Trae un producto ya activado con su dueño (migración desde otro deploy). Solo el admin, no la
     /// cuenta emisora: es la operación que asigna un dueño sin firma del secreto.
     pub fn import_claimed_product(ctx: Context<ImportClaimedProduct>, args: ProductArgs, owner: Pubkey) -> Result<()> {
         let config = &mut ctx.accounts.config;
@@ -132,8 +132,7 @@ pub mod verifire_product {
         let transfer_key = product.transfer_key.ok_or(VerifireError::NoOpenTransfer)?;
         let recipient = ctx.accounts.recipient.key();
         require!(product.owner != Some(recipient), VerifireError::AlreadyOwner);
-        // A diferencia de la versión Soroban, el vencimiento vive en la misma cuenta que la clave: un link nunca
-        // queda abierto sin fecha de vencimiento.
+        // El vencimiento vive en la misma cuenta que la clave: un link nunca queda abierto sin fecha de vencimiento.
         require!(Clock::get()?.unix_timestamp <= product.transfer_expires_at, VerifireError::TransferExpired);
         let message = signed_message(TRANSFER_DOMAIN, &product.key(), &recipient);
         ed25519::verify_previous_instruction(&ctx.accounts.instructions, &transfer_key, &message)?;
@@ -252,7 +251,7 @@ pub struct MintProduct<'info> {
     #[account(mut, seeds = [CONFIG_SEED], bump = config.bump, has_one = minter @ VerifireError::NotMinter)]
     pub config: Account<'info, Config>,
     pub minter: Signer<'info>,
-    // `init` falla si el código ya existe: es el índice único por código que en Soroban era TokenByCode.
+    // `init` falla si el código ya existe: es el índice único por código, sin cuenta aparte.
     #[account(init, payer = payer, space = 8 + Product::INIT_SPACE, seeds = [PRODUCT_SEED, args.public_code.as_bytes()], bump)]
     pub product: Account<'info, Product>,
     #[account(mut)]

@@ -22,7 +22,7 @@ const initials = (name: string) =>
 type TextField = Exclude<keyof CompanyProfile, 'logo' | 'industry' | 'description'>;
 
 // Rendered inside the settings island, which provides the texts.
-export function CompanyProfileSettings({ cavosAppId }: { cavosAppId: string }) {
+export function CompanyProfileSettings() {
   const t = useCompanyText();
   const text = t.settings.profile;
   const [saved, setSaved] = useState<{ name: string; profile: CompanyProfile }>({ name: '', profile: emptyProfile });
@@ -89,7 +89,7 @@ export function CompanyProfileSettings({ cavosAppId }: { cavosAppId: string }) {
     setProfile(trimmed);
     setNotice({ text: text.saved, tone: 'success' });
     // A brand that was already published follows what was just saved; one that was not stays private.
-    void refreshPublishedBrand(cavosAppId).catch((error: unknown) => {
+    void refreshPublishedBrand().catch((error: unknown) => {
       setNotice({ text: `${t.settings.brand.refreshFailed} ${errorMessage(error)}`, tone: 'error' });
     });
   };

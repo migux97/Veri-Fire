@@ -1,6 +1,6 @@
 // Tests del programa ejecutado de forma nativa con solana-program-test (incluye la verificación real de
-// Ed25519SigVerify y el sysvar Instructions). Cubren los mismos casos que los tests del contrato Soroban
-// (contracts/verifire_product/src/lib.rs) más las correcciones de la migración.
+// Ed25519SigVerify y el sysvar Instructions): emisión, activación, transferencias, separación de llaves, cooldown
+// y firmas para otro producto o cuenta.
 use anchor_lang::{
     prelude::Pubkey, solana_program::bpf_loader_upgradeable, solana_program::instruction::Instruction,
     AccountDeserialize, InstructionData, ToAccountMetas,

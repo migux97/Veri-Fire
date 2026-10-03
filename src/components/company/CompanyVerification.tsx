@@ -18,7 +18,7 @@ const kindOf = (state: VerificationState | null): Kind => {
   return state.status;
 };
 
-export function CompanyVerification({ cavosAppId }: { cavosAppId: string }) {
+export function CompanyVerification() {
   const t = useCompanyText();
   const text = t.settings.verification;
   // Empty until the page is in the browser: the server that renders it first has no storage to read them from.
@@ -62,7 +62,7 @@ export function CompanyVerification({ cavosAppId }: { cavosAppId: string }) {
     setBusy(true);
     setNotice(null);
     try {
-      await requestVerification(cavosAppId, message.trim());
+      await requestVerification(message.trim());
       setMessage('');
       setNotice({ text: text.requested, tone: 'success' });
     } catch (error) {

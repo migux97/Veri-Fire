@@ -180,7 +180,7 @@ const es = {
       destination: 'Destino',
       destinationPlaceholder: 'Ej. Argentina',
       tokens: 'Cantidad de tokens',
-      amount: 'Importe en XLM',
+      amount: 'Importe en USDC',
       date: 'Fecha y hora local'
     },
     save: 'Guardar programación',
@@ -195,7 +195,7 @@ const es = {
       `Todavía no hay operaciones programadas${mode === 'batch' ? ' de lotes' : mode === 'payment' ? ' de pagos' : ''}.`,
     batchTitleValue: (name: string, amount: number) => `${name} · ${amount} unidades`,
     batchDetail: (reference: string, destination: string) => `Referencia: ${reference || 'Pendiente'} · Destino: ${destination || 'Pendiente'}`,
-    paymentDetail: (amount: number, reference: string) => `${amount} XLM · ${reference || 'Tesorería'}`,
+    paymentDetail: (amount: number, reference: string) => `${amount} USDC · ${reference || 'Tesorería'}`,
     removeLabel: (title: string) => `Eliminar programación: ${title}`,
     overdue: 'Vencido',
     csvHeader: 'Tipo,Operación,Detalle,Fecha',
@@ -368,32 +368,6 @@ const es = {
       refreshFailed: 'Se guardó el perfil, pero no se pudo actualizar la marca publicada:',
       noSupportEmail: 'Todavía no configuraste un correo de soporte: sin él los compradores no tienen cómo escribirte.',
       readOnly: 'Solo un administrador puede publicar la marca.',
-      toml: {
-        title: 'Identidad en Stellar (stellar.toml)',
-        lead: 'Es el archivo con el que una organización se identifica en Stellar (SEP-0001): las billeteras y los exploradores lo leen para mostrar tu nombre y tu logo. Verifire lo arma con los datos de tu perfil y lo publicás vos en tu propio sitio.',
-        included: 'Incluye',
-        omitted: 'No incluye',
-        keys: {
-          ORG_NAME: 'Nombre de la organización',
-          ORG_DBA: 'Nombre comercial',
-          ORG_URL: 'Sitio web',
-          ORG_LOGO: 'Logo',
-          ORG_DESCRIPTION: 'Descripción',
-          ORG_OFFICIAL_EMAIL: 'Correo oficial',
-          ORG_SUPPORT_EMAIL: 'Correo de soporte'
-        } as Record<string, string>,
-        reasons: { missing: 'falta completarlo', 'not-https': 'necesita una dirección https' } as Record<string, string>,
-        warnings: {
-          'website-not-https': 'El sitio web no usa https: Stellar espera una dirección segura.',
-          'email-other-domain': 'El correo oficial no es del dominio de tu sitio web, y SEP-0001 pide que lo sea.'
-        } as Record<string, string>,
-        logoHint: 'Publicá la marca para que el logo tenga una dirección pública.',
-        download: 'Descargar stellar.toml',
-        downloaded: 'Archivo descargado.',
-        whereTitle: 'Dónde publicarlo',
-        where: 'Subilo a https://tu-dominio/.well-known/stellar.toml, con HTTPS y el encabezado Access-Control-Allow-Origin: *. El dominio tiene que ser el de tu sitio web.',
-        note: 'Verifire no lo publica por vos ni lo conecta a una cuenta de Stellar: hasta que lo publiques en tu dominio, no verifica nada.'
-      }
     },
     profile: {
       title: 'Perfil de empresa',
@@ -469,7 +443,7 @@ const es = {
       title: 'Notificaciones',
       lead: 'Avisos dentro del panel, en la campana de arriba.',
       payments: 'Pagos confirmados',
-      paymentsHelp: 'Cuando Cosmos Pay confirma el pago de un lote.',
+      paymentsHelp: 'Cuando se confirma en Solana el pago de un lote.',
       batches: 'Lotes creados',
       batchesHelp: 'Cuando un lote queda generado con sus etiquetas.',
       reminders: 'Pagos y lotes programados',
@@ -496,7 +470,7 @@ const es = {
     kinds: {
       paymentSucceeded: {
         title: 'Pago realizado con éxito',
-        body: (p: Record<string, string>) => `Cosmos Pay confirmó el pago de ${p['amount'] ?? ''} XLM para ${p['model'] ?? 'tu lote'}.`
+        body: (p: Record<string, string>) => `Se confirmó el pago de ${p['amount'] ?? ''} USDC para ${p['model'] ?? 'tu lote'}.`
       },
       batchCreated: {
         title: 'Lote creado con éxito',
@@ -569,8 +543,8 @@ const es = {
       retry: 'Reintentar',
       forget: 'Quitar de la lista',
       waiting: 'Esperando pago',
-      registering: 'Registrando en Stellar',
-      readyChain: 'Listo · en Stellar',
+      registering: 'Registrando en Solana',
+      readyChain: 'Listo · en Solana',
       ready: 'Listo',
       paymentPending: 'Pago pendiente',
       lot: (lot: string) => `Lote ${lot}`,
@@ -587,7 +561,7 @@ const es = {
       ship: 'Marcar como despachado',
       hidePayment: 'Ocultar QR de pago',
       showPayment: 'Ver QR de pago',
-      ledger: 'Ver pago de emisión en Stellar',
+      ledger: 'Ver pago de emisión en Solana',
       photoAlt: (model: string) => `Foto de ${model}`
     },
     labels: {
@@ -607,21 +581,21 @@ const es = {
     payment: {
       pay: (amount: string, asset: string) => `Pagá ${amount} ${asset}`,
       toIssue: (quantity: number, model: string) => ` para emitir ${quantity} ${quantity === 1 ? 'token' : 'tokens'} de ${model}.`,
-      note: 'Escaneá el QR con Cosmos Pay. El lote se genera solo cuando se confirma el pago, y esta tarjeta se actualiza sola.',
-      alt: 'QR de pago Cosmos Pay',
+      note: 'Escaneá el QR con cualquier wallet de Solana (Phantom, Solflare...) o pagá con tu wallet de Verifire. El lote se genera solo cuando se confirma el pago, y esta tarjeta se actualiza sola.',
+      alt: 'QR de pago Solana Pay',
       missing: 'Esta compra no tiene un QR de pago guardado.'
     }
   },
   purchase: {
-    waiting: 'Esperando confirmación de Cosmos Pay...',
+    waiting: 'Esperando la confirmación del pago en Solana...',
     confirmed: (batchId: string) => `Pago confirmado. El lote ${batchId} ya está en Mis lotes con sus etiquetas.`,
     preparing: 'Pago confirmado. Preparando los tokens...',
-    status: (status: string) => `Estado Cosmos Pay: ${status || 'pendiente'}. Comprobando automáticamente...`,
-    creating: 'Creando el pago en Cosmos Pay...',
+    status: (status: string) => `Pago ${status === 'pending' || !status ? 'pendiente' : status}. Comprobando automáticamente...`,
+    creating: 'Creando el pago con Solana Pay...',
     createFailed: 'No se pudo crear el pago del lote.',
     payTitle: (amount: string, asset: string, quantity: number) => `Pagá ${amount} ${asset} para emitir ${quantity} ${quantity === 1 ? 'token' : 'tokens'}`,
-    payNote: 'Escaneá el QR con Cosmos Pay. El lote se genera solo cuando se confirma el pago.',
-    qrAlt: 'QR de pago Cosmos Pay',
+    payNote: 'Escaneá el QR con cualquier wallet de Solana o pagá con tu wallet de Verifire. El lote se genera solo cuando se confirma el pago.',
+    qrAlt: 'QR de pago Solana Pay',
     ready: 'Pago confirmado. Tu lote ya está listo en Mis lotes.',
     leaveNote: 'Podés cambiar de pestaña: el pago pendiente queda guardado en Mis lotes.',
     another: 'Crear otro lote',
@@ -632,15 +606,12 @@ const es = {
     wallet: {
       action: 'Pagar con wallet',
       busy: 'Esperando la wallet...',
-      hint: 'Desde esta computadora con Freighter u otra wallet Stellar: el pago va con su memo, sin copiar nada.',
-      hintTestnet: 'Desde esta computadora con Freighter (en Testnet) u otra wallet Stellar: el pago va con su memo, sin copiar nada.',
+      hint: 'Con el USDC de tu wallet de Verifire. Verifire paga la comisión de red.',
       opening: 'Abrí tu wallet y confirmá el pago.',
-      confirming: 'Pago enviado. Confirmándolo con Cosmos Pay...',
+      confirming: 'Pago firmado. Enviándolo a Solana...',
       paid: 'Pago confirmado. El lote se está generando.',
-      sent: 'Pago enviado. Cosmos Pay lo confirma en unos segundos.',
-      missing: 'No encontramos una wallet Stellar en este navegador. Instalá Freighter o pagá escaneando el QR.',
-      failed: 'No se pudo completar el pago con la wallet.',
-      retryConfirm: 'Volver a confirmar el pago'
+      sent: 'Pago enviado. Se confirma en unos segundos.',
+      failed: 'No se pudo completar el pago con la wallet.'
     }
   },
   photo: {
@@ -898,7 +869,7 @@ const en: CompanyMessages = {
       destination: 'Destination',
       destinationPlaceholder: 'E.g. Argentina',
       tokens: 'Number of tokens',
-      amount: 'Amount in XLM',
+      amount: 'Amount in USDC',
       date: 'Local date and time'
     },
     save: 'Save schedule',
@@ -913,7 +884,7 @@ const en: CompanyMessages = {
       `There are no scheduled ${mode === 'batch' ? 'batches' : mode === 'payment' ? 'payments' : 'operations'} yet.`,
     batchTitleValue: (name: string, amount: number) => `${name} · ${amount} units`,
     batchDetail: (reference: string, destination: string) => `Reference: ${reference || 'Pending'} · Destination: ${destination || 'Pending'}`,
-    paymentDetail: (amount: number, reference: string) => `${amount} XLM · ${reference || 'Treasury'}`,
+    paymentDetail: (amount: number, reference: string) => `${amount} USDC · ${reference || 'Treasury'}`,
     removeLabel: (title: string) => `Remove schedule: ${title}`,
     overdue: 'Overdue',
     csvHeader: 'Type,Operation,Detail,Date',
@@ -1086,32 +1057,6 @@ const en: CompanyMessages = {
       refreshFailed: 'The profile was saved, but the published brand could not be updated:',
       noSupportEmail: 'You have not set a support email yet: without it buyers have no way to write to you.',
       readOnly: 'Only an administrator can publish the brand.',
-      toml: {
-        title: 'Identity on Stellar (stellar.toml)',
-        lead: 'The file an organization identifies itself with on Stellar (SEP-0001): wallets and explorers read it to show your name and logo. Verifire builds it from your profile and you publish it on your own website.',
-        included: 'Includes',
-        omitted: 'Does not include',
-        keys: {
-          ORG_NAME: 'Organization name',
-          ORG_DBA: 'Trade name',
-          ORG_URL: 'Website',
-          ORG_LOGO: 'Logo',
-          ORG_DESCRIPTION: 'Description',
-          ORG_OFFICIAL_EMAIL: 'Official email',
-          ORG_SUPPORT_EMAIL: 'Support email'
-        } as Record<string, string>,
-        reasons: { missing: 'it is not filled in', 'not-https': 'it needs an https address' } as Record<string, string>,
-        warnings: {
-          'website-not-https': 'The website does not use https: Stellar expects a secure address.',
-          'email-other-domain': 'The official email is not on the domain of your website, and SEP-0001 asks for that.'
-        } as Record<string, string>,
-        logoHint: 'Publish the brand so the logo gets a public address.',
-        download: 'Download stellar.toml',
-        downloaded: 'File downloaded.',
-        whereTitle: 'Where to publish it',
-        where: 'Upload it to https://your-domain/.well-known/stellar.toml, over HTTPS and with the header Access-Control-Allow-Origin: *. The domain has to be the one of your website.',
-        note: 'Verifire does not publish it for you or link it to a Stellar account: until you publish it on your domain, it verifies nothing.'
-      }
     },
     profile: {
       title: 'Company profile',
@@ -1187,7 +1132,7 @@ const en: CompanyMessages = {
       title: 'Notifications',
       lead: 'Notices inside the dashboard, under the bell at the top.',
       payments: 'Confirmed payments',
-      paymentsHelp: 'When Cosmos Pay confirms the payment of a batch.',
+      paymentsHelp: 'When the payment of a batch is confirmed on Solana.',
       batches: 'Created batches',
       batchesHelp: 'When a batch is issued with its labels.',
       reminders: 'Scheduled payments and batches',
@@ -1214,7 +1159,7 @@ const en: CompanyMessages = {
     kinds: {
       paymentSucceeded: {
         title: 'Payment completed',
-        body: (p: Record<string, string>) => `Cosmos Pay confirmed the payment of ${p['amount'] ?? ''} XLM for ${p['model'] ?? 'your batch'}.`
+        body: (p: Record<string, string>) => `The payment of ${p['amount'] ?? ''} USDC was confirmed for ${p['model'] ?? 'your batch'}.`
       },
       batchCreated: {
         title: 'Batch created',
@@ -1287,8 +1232,8 @@ const en: CompanyMessages = {
       retry: 'Retry',
       forget: 'Remove from list',
       waiting: 'Waiting for payment',
-      registering: 'Registering on Stellar',
-      readyChain: 'Ready · on Stellar',
+      registering: 'Registering on Solana',
+      readyChain: 'Ready · on Solana',
       ready: 'Ready',
       paymentPending: 'Payment pending',
       lot: (lot: string) => `Lot ${lot}`,
@@ -1305,7 +1250,7 @@ const en: CompanyMessages = {
       ship: 'Mark as shipped',
       hidePayment: 'Hide payment QR',
       showPayment: 'See payment QR',
-      ledger: 'See the issuance payment on Stellar',
+      ledger: 'See the issuance payment on Solana',
       photoAlt: (model: string) => `Photo of ${model}`
     },
     labels: {
@@ -1325,21 +1270,21 @@ const en: CompanyMessages = {
     payment: {
       pay: (amount: string, asset: string) => `Pay ${amount} ${asset}`,
       toIssue: (quantity: number, model: string) => ` to issue ${quantity} ${quantity === 1 ? 'token' : 'tokens'} of ${model}.`,
-      note: 'Scan the QR with Cosmos Pay. The batch is issued only once the payment is confirmed, and this card updates on its own.',
-      alt: 'Cosmos Pay payment QR',
+      note: 'Scan the QR with any Solana wallet (Phantom, Solflare...) or pay with your Verifire wallet. The batch is issued only once the payment is confirmed, and this card updates on its own.',
+      alt: 'Solana Pay payment QR',
       missing: 'This purchase has no saved payment QR.'
     }
   },
   purchase: {
-    waiting: 'Waiting for Cosmos Pay confirmation...',
+    waiting: 'Waiting for the payment to be confirmed on Solana...',
     confirmed: (batchId: string) => `Payment confirmed. Batch ${batchId} is in My batches with its labels.`,
     preparing: 'Payment confirmed. Preparing the tokens...',
-    status: (status: string) => `Cosmos Pay status: ${status || 'pending'}. Checking automatically...`,
-    creating: 'Creating the Cosmos Pay payment...',
+    status: (status: string) => `Payment ${status || 'pending'}. Checking automatically...`,
+    creating: 'Creating the Solana Pay payment...',
     createFailed: 'The batch payment could not be created.',
     payTitle: (amount: string, asset: string, quantity: number) => `Pay ${amount} ${asset} to issue ${quantity} ${quantity === 1 ? 'token' : 'tokens'}`,
-    payNote: 'Scan the QR with Cosmos Pay. The batch is issued only once the payment is confirmed.',
-    qrAlt: 'Cosmos Pay payment QR',
+    payNote: 'Scan the QR with any Solana wallet or pay with your Verifire wallet. The batch is issued only once the payment is confirmed.',
+    qrAlt: 'Solana Pay payment QR',
     ready: 'Payment confirmed. Your batch is ready in My batches.',
     leaveNote: 'You can switch tabs: the pending payment stays in My batches.',
     another: 'Create another batch',
@@ -1349,15 +1294,12 @@ const en: CompanyMessages = {
     wallet: {
       action: 'Pay with wallet',
       busy: 'Waiting for the wallet...',
-      hint: 'From this computer with Freighter or another Stellar wallet: the payment carries its memo, nothing to copy.',
-      hintTestnet: 'From this computer with Freighter (on Testnet) or another Stellar wallet: the payment carries its memo, nothing to copy.',
+      hint: 'With the USDC in your Verifire wallet. Verifire pays the network fee.',
       opening: 'Open your wallet and confirm the payment.',
-      confirming: 'Payment sent. Confirming it with Cosmos Pay...',
+      confirming: 'Payment signed. Sending it to Solana...',
       paid: 'Payment confirmed. The batch is being issued.',
-      sent: 'Payment sent. Cosmos Pay confirms it in a few seconds.',
-      missing: 'No Stellar wallet was found in this browser. Install Freighter or pay by scanning the QR.',
-      failed: 'The payment could not be completed with the wallet.',
-      retryConfirm: 'Confirm the payment again'
+      sent: 'Payment sent. It is confirmed in a few seconds.',
+      failed: 'The payment could not be completed with the wallet.'
     }
   },
   photo: {

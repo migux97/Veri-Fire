@@ -1,5 +1,5 @@
 {
-  "name": "verifire-cosmos-pay-test",
+  "name": "verifire",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,17 +14,12 @@
     "test": "node --test \"tests/**/*.test.mjs\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "contract:deploy": "node --env-file-if-exists=.env scripts/deploy-contract.ts",
-    "contract:upgrade": "node --env-file-if-exists=.env scripts/upgrade-contract.ts",
-    "contract:test-activation": "node --env-file-if-exists=.env scripts/test-activation.ts",
     "test:solana": "cargo test --manifest-path solana/Cargo.toml",
     "solana:init": "node --env-file-if-exists=.env scripts/solana-init.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.5",
     "@astrojs/react": "^6.0.5",
-    "@cavos/kit": "^0.1.12",
-    "@cosmosapp/pay_sdk": "^1.2.1",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@nanostores/react": "^2.0.1",
     "@privy-io/react-auth": "^3.47.0",
@@ -32,10 +27,7 @@
     "@solana-program/system": "^0.15.0",
     "@solana-program/token": "^0.17.0",
     "@solana/kit": "^8.4.0",
-    "@stellar/freighter-api": "^6.0.1",
-    "@stellar/stellar-sdk": "^17.0.1",
     "astro": "^7.3.2",
-    "buffer": "^6.0.3",
     "jsqr": "^1.4.0",
     "nanostores": "^1.5.3",
     "qrcode": "^1.5.4",

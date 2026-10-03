@@ -1,8 +1,8 @@
 ---
 import LandingPage from '@/components/landing/LandingPage.astro';
 
-// Preserve login callbacks and session notices that return to the home page.
-if (Astro.url.searchParams.has('cavos_auth_code') || Astro.url.searchParams.has('sesion')) {
+// Session notices that return to the home page belong to the login page.
+if (Astro.url.searchParams.has('sesion')) {
   return Astro.redirect(`/login${Astro.url.search}`);
 }
 ---

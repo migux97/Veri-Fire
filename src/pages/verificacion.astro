@@ -4,7 +4,6 @@
 import StandaloneHeader from '@/components/layout/StandaloneHeader.astro';
 import { VerificationAdmin } from '@/components/company/VerificationAdmin';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { publicConfig } from '@/lib/server/config';
 ---
 
 <BaseLayout
@@ -25,7 +24,7 @@ import { publicConfig } from '@/lib/server/config';
         Una empresa verificada puede decir "original" en lo que escanea el comprador. Revisá su razón social, su CUIT y su sitio antes de aprobarla:
         la aprobación vale mientras la empresa siga mostrando el nombre que verificaste.
       </p>
-      <VerificationAdmin client:load cavosAppId={publicConfig.cavosAppId} />
+      <VerificationAdmin client:load />
     </section>
   </main>
 

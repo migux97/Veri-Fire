@@ -1,10 +1,9 @@
 import { config } from './config';
-import { solanaLedger, stellarLedger } from './ledger';
+import { solanaLedger } from './ledger';
 import { singleton } from './singleton';
 
-// While the contract or program id is empty (or the server's key is missing) warranties are stored only locally:
-// demo mode. CHAIN picks the network (see chain-kind.ts).
-export const chain = singleton(`ledger-${config.chain}`, () => (config.chain === 'solana' ? solanaLedger(config.solana) : stellarLedger(config.stellar)));
+// While the program id is empty (or the server's key is missing) warranties are stored only locally: demo mode.
+export const chain = singleton('ledger', () => solanaLedger(config.solana));
 
-// A product as the ledger addresses it.
+// A product as the program addresses it: by its public code (the PDA seed); the token id is its serial number.
 export const refOf = (product: { token: string; chain: { tokenId: number } }) => ({ tokenId: product.chain.tokenId, code: product.token });

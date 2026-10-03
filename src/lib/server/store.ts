@@ -49,8 +49,7 @@ export interface Product extends ProductFields {
   claimTransaction?: string;
   // Hex public key derived from the secret code (see activationKeyOf).
   activationKey?: string;
-  // Set once the product is registered in the Stellar contract. contractId is missing on records made before
-  // contracts were replaced: those belong to STELLAR_PREVIOUS_CONTRACT_ID, or to the current one if it is not set.
+  // Set once the product is registered in the program. contractId is the program it was registered in.
   chain?: { tokenId: number; mintTx: string; contractId?: string; at?: string };
   events?: StoredEvent[];
   // Open transfer link: the public key of its secret, who offered it and when it expires.
@@ -75,7 +74,8 @@ export interface Purchase extends ProductFields {
   owner?: string;
   quantity: number;
   total: string;
-  intentId: string;
+  // Solana Pay reference key: the payment of this purchase carries it, which is how it is found on-chain.
+  reference: string;
   createdAt?: string;
   paymentQr: string | null;
   paymentUri: string | null;

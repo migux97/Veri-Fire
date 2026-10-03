@@ -117,7 +117,7 @@ const views = t.views;
         </div>
       </header>
 
-      <WorkspaceSync client:load cavosAppId={publicConfig.cavosAppId} />
+      <WorkspaceSync client:load />
 
       <main class="company-content">
         <section class="company-view" data-company-view="dashboard" aria-labelledby="view-dashboard">
@@ -184,7 +184,7 @@ const views = t.views;
             <h1 id="view-settings" tabindex="-1">{views.settings.title}</h1>
             <p class="company-view-description">{views.settings.description}</p>
           </header>
-          <CompanySettings client:load locale={locale} cavosAppId={publicConfig.cavosAppId} />
+          <CompanySettings client:load locale={locale} />
         </section>
       </main>
     </div>

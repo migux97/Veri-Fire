@@ -5,7 +5,6 @@ import AppTopbar from '@/components/layout/AppTopbar.astro';
 import SiteFooter from '@/components/layout/SiteFooter.astro';
 import { WorkspaceSync } from '@/components/company/WorkspaceSync';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { publicConfig } from '@/lib/server/config';
 ---
 
 <BaseLayout
@@ -30,7 +29,7 @@ import { publicConfig } from '@/lib/server/config';
     </section>
 
     <BatchList client:load />
-    <WorkspaceSync client:load cavosAppId={publicConfig.cavosAppId} />
+    <WorkspaceSync client:load />
   </main>
 
   <SiteFooter />

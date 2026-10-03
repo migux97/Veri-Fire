@@ -198,7 +198,7 @@ export const safeguards = [
   {
     icon: 'fa-solid fa-magnifying-glass',
     title: 'El registro es público',
-    text: 'Dueños, destinos y activaciones quedan en Stellar. Cualquiera puede auditarlos sin pedirnos permiso.'
+    text: 'Dueños, destinos y activaciones quedan en Solana. Cualquiera puede auditarlos sin pedirnos permiso.'
   }
 ];
 
@@ -214,7 +214,7 @@ export const faqs = [
   },
   {
     question: '¿Cómo se paga un lote de etiquetas?',
-    answer: 'Con Cosmos Pay, en XLM. Cuando se confirma el pago, cada producto del lote queda registrado en el contrato.'
+    answer: 'En USDC con Solana Pay, desde tu wallet de Verifire o cualquier wallet de Solana. Cuando se confirma el pago, cada producto del lote queda registrado en Solana.'
   },
   {
     question: '¿Qué se guarda en la blockchain?',

@@ -10,16 +10,16 @@ const es = {
     publicNote: 'Para consultar la procedencia de un producto no necesitás una cuenta.', verify: 'Verificar un QR'
   },
   hero: {
-    eyebrow: 'Sistema de verificación criptográfica en Stellar',
+    eyebrow: 'Sistema de verificación criptográfica en Solana',
     title: 'Autenticidad física y garantías protegidas con doble factor on-chain.',
-    lead: 'Anclamos números de serie a registros inmutables en Stellar. Un QR público para auditar la procedencia en góndola y un código sellado para que el comprador active la garantía oficial y reclame su titularidad.',
+    lead: 'Anclamos números de serie a registros inmutables en Solana. Un QR público para auditar la procedencia en góndola y un código sellado para que el comprador active la garantía oficial y reclame su titularidad.',
     scan: 'Escanear y validar unidad', architecture: 'Ver arquitectura técnica',
     accountPrompt: 'Activá y gestioná tus garantías.',
     benefits: ['Doble factor QR', 'Bajo costo de red por serie', 'Verificación sin app obligatoria'],
-    feeNote: 'Las comisiones dependen de los recursos de cada operación en Stellar.'
+    feeNote: 'Verifire paga las comisiones de red: el comprador no necesita SOL.'
   },
   audit: {
-    title: 'Auditoría de unidad', demo: 'Demo interactiva', network: 'Stellar Testnet', node: 'Verifire Core Node',
+    title: 'Auditoría de unidad', demo: 'Demo interactiva', network: 'Solana Devnet', node: 'Verifire Core Node',
     publicQr: 'QR 1: Lectura Pública', secretQr: 'QR 2: Secreto de Garantía',
     publicText: 'El QR exterior de la caja permite consultar procedencia, lote y estado sin crear una cuenta.',
     secretText: 'El código bajo el precinto interno permite reclamar titularidad y activar la garantía una sola vez.',
@@ -33,7 +33,7 @@ const es = {
     navigation: 'Explorá las industrias', previous: 'Industria anterior', next: 'Industria siguiente',
     batch: 'Lote', active: 'Garantía activa', pending: 'En góndola (QR 2 pendiente)',
     public: 'QR 1 · Procedencia pública', secret: 'QR 2 · Activación privada',
-    query: 'Stellar Horizon Query: 200 OK', simulated: 'Consulta simulada',
+    query: 'Solana RPC getAccountInfo: 200 OK', simulated: 'Consulta simulada',
     inspect: 'Cambio automático cada 4 s. Mantené el cursor o el dedo sobre la tarjeta para pausar.',
     paused: 'En pausa durante la inspección. Retirá el cursor, soltá el dedo o salí con Tab; si abriste el historial, cerralo.',
     examples: 'Casos ilustrativos; los datos y estados mostrados son de ejemplo.',
@@ -41,7 +41,7 @@ const es = {
     specs: {
       asset: 'Asset Code', assetValue: 'Custom Asset (VF-{lot})',
       activation: 'Método de activación', activationValue: 'Firma biométrica / Passkey · Sin gas para el usuario',
-      warranty: 'Lógica de garantía', warrantyValue: 'Soroban Smart Contract · Transferible en mercado secundario'
+      warranty: 'Lógica de garantía', warrantyValue: 'Programa Anchor en Solana · Transferible en mercado secundario'
     },
     industries: ['Relojería de Precisión', 'Perfumería Premium', 'Bodegas y Vinos de Exportación', 'Autopartes y Repuestos Críticos', 'Cosmética Premium'],
     descriptions: [
@@ -59,7 +59,7 @@ const es = {
     issue: 'Emisión administrativa. Requiere Authorization: Bearer y ADMIN_API_TOKEN.',
     claim: 'Prepara el mensaje de activación con activationKey y owner. El código sellado no se envía al servidor.',
     flow: 'Luego: firma local → /api/warranties/transaction → autorización de la wallet → /api/warranties.',
-    architecture: 'Arquitectura del contrato', reference: 'API de Stellar RPC',
+    architecture: 'Arquitectura del programa', reference: 'API RPC de Solana',
     example: 'Ejemplo de consulta pública', sample: 'Reemplazá el token por una serie registrada; las series de la demo no son registros reales.'
   }
 };
@@ -74,13 +74,13 @@ const en: typeof es = {
     publicNote: 'You don’t need an account to check a product’s provenance.', verify: 'Verify a QR code'
   },
   hero: {
-    eyebrow: 'Cryptographic verification system on Stellar', title: 'Physical authenticity and warranties protected by two on-chain factors.',
-    lead: 'We anchor serial numbers to immutable records on Stellar. A public QR code audits provenance on the shelf, while a sealed code lets the buyer activate the official warranty and claim ownership.',
-    scan: 'Scan and validate a unit', architecture: 'Explore the architecture', benefits: ['Dual QR verification', 'Low network cost per serial', 'Verify without a mandatory app'], feeNote: 'Fees depend on the resources used by each Stellar operation.',
+    eyebrow: 'Cryptographic verification system on Solana', title: 'Physical authenticity and warranties protected by two on-chain factors.',
+    lead: 'We anchor serial numbers to immutable records on Solana. A public QR code audits provenance on the shelf, while a sealed code lets the buyer activate the official warranty and claim ownership.',
+    scan: 'Scan and validate a unit', architecture: 'Explore the architecture', benefits: ['Dual QR verification', 'Low network cost per serial', 'Verify without a mandatory app'], feeNote: 'Verifire pays the network fees: buyers need no SOL.',
     accountPrompt: 'Activate and manage your warranties.'
   },
   audit: {
-    title: 'Unit audit', demo: 'Interactive demo', network: 'Stellar Testnet', node: 'Verifire Core Node',
+    title: 'Unit audit', demo: 'Interactive demo', network: 'Solana Devnet', node: 'Verifire Core Node',
     publicQr: 'QR 1: Public Read', secretQr: 'QR 2: Warranty Secret', publicText: 'The QR on the outside of the box shows provenance, batch, and status without creating an account.',
     secretText: 'The code under the inner seal lets the buyer claim ownership and activate the warranty just once.',
     hash: 'Serial Hash', asset: 'Asset Code', ledger: 'Ledger State', state: 'Active / 12-month warranty', note: 'Sample data. This view does not query the network.'
@@ -89,7 +89,7 @@ const en: typeof es = {
     eyebrow: 'Traceability in action', title: 'One protocol. Five industries.', lead: 'Provenance is queried. A warranty is claimed. Explore how dual QR verification works for each product.',
     label: 'Verifire use cases', role: 'carousel', position: 'Case {current} of {total}', go: 'View case: {industry}', batch: 'Batch', active: 'Warranty active', pending: 'On the shelf (QR 2 pending)',
     navigation: 'Explore the industries', previous: 'Previous industry', next: 'Next industry',
-    public: 'QR 1 · Public provenance', secret: 'QR 2 · Private activation', query: 'Stellar Horizon Query: 200 OK', simulated: 'Simulated query',
+    public: 'QR 1 · Public provenance', secret: 'QR 2 · Private activation', query: 'Solana RPC getAccountInfo: 200 OK', simulated: 'Simulated query',
     inspect: 'Changes automatically every 4 s. Hover or hold the card to pause.',
     paused: 'Paused while inspecting. Move the pointer away, release your finger, or Tab out; close the history if open.',
     examples: 'Illustrative use cases; all displayed data and states are examples.',
@@ -97,7 +97,7 @@ const en: typeof es = {
     specs: {
       asset: 'Asset Code', assetValue: 'Custom Asset (VF-{lot})',
       activation: 'Activation method', activationValue: 'Biometric signature / Passkey · No gas fees for the user',
-      warranty: 'Warranty logic', warrantyValue: 'Soroban Smart Contract · Transferable on the secondary market'
+      warranty: 'Warranty logic', warrantyValue: 'Anchor program on Solana · Transferable on the secondary market'
     },
     industries: ['Precision watchmaking', 'Premium perfume', 'Wineries & export wines', 'Critical auto parts & spares', 'Premium cosmetics'],
     descriptions: [
@@ -113,7 +113,7 @@ const en: typeof es = {
     public: 'Public product lookup by token; no account required.', issue: 'Administrative issuance. Requires Authorization: Bearer and ADMIN_API_TOKEN.',
     claim: 'Prepares the activation message with activationKey and owner. The sealed code is not sent to the server.',
     flow: 'Then: local signature → /api/warranties/transaction → wallet authorization → /api/warranties.',
-    architecture: 'Contract architecture', reference: 'Stellar RPC API', example: 'Public query example', sample: 'Replace the token with a registered serial; demo serials are not real records.'
+    architecture: 'Program architecture', reference: 'Solana RPC API', example: 'Public query example', sample: 'Replace the token with a registered serial; demo serials are not real records.'
   }
 };
 

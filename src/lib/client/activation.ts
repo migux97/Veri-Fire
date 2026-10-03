@@ -6,7 +6,6 @@ import type { ClaimPreview, PreparedClaim, UnsignedTransaction, Warranty } from 
 import { ApiError, postJson } from './api';
 import { base64ToBytes, base64UrlToBytes, bytesToBase64, bytesToHex } from './bytes';
 import type { ScannedClaim } from '../qr-codes';
-import { chainLabel, walletLabel } from './chain';
 import { connectSigner, type Progress } from './signer';
 
 export type { Progress };
@@ -63,7 +62,6 @@ export const previewClaim = async (claim: ScannedClaim): Promise<ClaimPreview | 
 };
 
 const activateOnChain = async (
-  appId: string,
   activation: SigningKey,
   owner: string,
   prepared: Extract<PreparedClaim, { onChain: true }>,
@@ -71,20 +69,19 @@ const activateOnChain = async (
   onProgress: Progress
 ) => {
   const request = { activationKey: activation.publicKey, owner };
-  const wallet = await connectSigner(appId, owner, onProgress);
-  await wallet.prepare(onProgress);
+  const wallet = await connectSigner(owner, onProgress);
   const signature = await signWith(activation, prepared.message);
-  const unsigned = await postJson<UnsignedTransaction>('/api/warranties/transaction', { ...request, signature }, `No se pudo preparar la activación en ${chainLabel()}.`);
-  onProgress(`Autorizando la activación con ${walletLabel()}...`);
+  const unsigned = await postJson<UnsignedTransaction>('/api/warranties/transaction', { ...request, signature }, `No se pudo preparar la activación en Solana.`);
+  onProgress(`Autorizando la activación con tu wallet...`);
   const signedTx = await wallet.signTransaction(unsigned.tx);
-  onProgress(`Registrando tu garantía en ${chainLabel()}. Puede tardar unos segundos...`);
-  return postJson<Warranty>('/api/warranties', { ...request, signedTx, showcase }, `No se pudo registrar la activación en ${chainLabel()}.`);
+  onProgress(`Registrando tu garantía en Solana. Puede tardar unos segundos...`);
+  return postJson<Warranty>('/api/warranties', { ...request, signedTx, showcase }, `No se pudo registrar la activación en Solana.`);
 };
 
 // Uses the contract when the server has one. Without it, or for the seed product that has no secret code (the server
 // does not know its key and answers 404), falls back to the demo claim stored only in the server.
 // showcase: the buyer agreed to show the product on the home page (the server ignores it without a photo).
-export const activateWarranty = async (appId: string, claim: ScannedClaim, owner: string, showcase: boolean, onProgress: Progress) => {
+export const activateWarranty = async (claim: ScannedClaim, owner: string, showcase: boolean, onProgress: Progress) => {
   const secret = secretFromClaim(claim);
   if (secret) {
     const activation = await deriveSigningKey(ACTIVATION_DOMAIN, secret);
@@ -94,7 +91,7 @@ export const activateWarranty = async (appId: string, claim: ScannedClaim, owner
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
     }
-    if (prepared?.onChain) return activateOnChain(appId, activation, owner, prepared, showcase, onProgress);
+    if (prepared?.onChain) return activateOnChain(activation, owner, prepared, showcase, onProgress);
   }
   return postJson<Warranty>('/api/warranties', { ...claim, owner, showcase }, 'No se pudo activar la garantía.');
 };

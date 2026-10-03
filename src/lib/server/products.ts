@@ -57,10 +57,9 @@ export const isCurrentOnChain = (product: Product): product is Product & { chain
   Boolean(product.chain
     && Number.isInteger(product.chain.tokenId)
     && config.contractId
-    // A product registered before the contract id was stored belongs to the replaced contract when there is one, and
-    // otherwise to the current one (see store.ts). Treating it as unregistered made it be minted again, which the
-    // contract refuses: it stayed "registrándose" forever.
-    && (product.chain.contractId ?? (config.previousContractId || config.contractId)) === config.contractId);
+    // A product registered before the program id was stored is taken as registered in the current one: minting it
+    // again would be refused and leave it "registrándose" forever.
+    && (product.chain.contractId ?? config.contractId) === config.contractId);
 
 const txUrlOf = (tx: string | undefined) => (chain.isTxId(tx) ? chain.explorerTxUrl(tx) : null);
 
@@ -170,7 +169,7 @@ export const transferredBy = (owner: string): TransferredWarranty[] =>
     .sort((first, second) => second.at.localeCompare(first.at));
 
 // What the buyer may see is the certification only: the activation transaction signed by the issuing account.
-// The Cosmos Pay payment that bought the batch moves company money and never leaves the company panel.
+// The Solana Pay payment that bought the batch moves company money and never leaves the company panel.
 export const warrantyView = (product: Product, baseUrl: string): Warranty => ({
   ...publicProductView(product),
   certificateUrl: txUrlOf(product.claimTransaction),
@@ -245,11 +244,11 @@ export const activationKeyOf = (product: Product) => {
 };
 
 // Products still waiting to be registered in the current contract: new ones, and after a new deploy every product of
-// the replaced contract. Activated ones are carried over with their owner.
+// the replaced program. Only sealed ones: an activated product has an owner the server cannot sign for.
 export const isPendingOnChain = (product: Product) =>
-  Boolean(product.secretCode) && !isCurrentOnChain(product) && (!product.claimed || (chain.importClaimedProduct !== null && chain.isAddress(product.owner)));
+  Boolean(product.secretCode) && !isCurrentOnChain(product) && !product.claimed;
 
-// Registers pending products in the Stellar contract, one transaction each. A failure is logged and retried on the
+// Registers pending products in the program, one transaction each. A failure is logged and retried on the
 // next pass: new products, a claim attempt for an unregistered product, or a server restart.
 const anchoring = singleton('anchoring', () => ({ running: false, again: false }));
 
@@ -294,15 +293,13 @@ export const anchorPendingProducts = () => {
             console.warn(`El código ${previous} ya existe en el contrato con otro producto: ahora es ${product.token}.`);
           }
           const toMint = { ...product, secretCode: product.secretCode ?? '' };
-          const registered = product.claimed && product.owner && chain.importClaimedProduct
-            ? await chain.importClaimedProduct(toMint, product.owner)
-            : await chain.mintProduct(toMint);
+          const registered = await chain.mintProduct(toMint);
           product.chain = { ...registered, contractId: chain.deploymentId, at: new Date().toISOString() };
           // A link opened in the replaced contract does not exist in the new one.
           delete product.transfer;
           saveState();
         } catch (error) {
-          console.error(`No se pudo registrar ${product.token} en ${chain.label}:`, error instanceof Error ? error.message : error);
+          console.error(`No se pudo registrar ${product.token} en Solana:`, error instanceof Error ? error.message : error);
         }
       }
     } while (anchoring.again);
@@ -315,7 +312,7 @@ export const anchorPendingProducts = () => {
 // module, which happens with the first request that reads products.
 singleton('anchoring-on-start', () => {
   anchorPendingProducts();
-  if (!chain.enabled) console.info(`Sin ${chain.kind === 'solana' ? 'SOLANA_PROGRAM_ID' : 'STELLAR_CONTRACT_ID'}: las garantías se guardan solo en este servidor (modo demo).`);
-  else console.info(`Garantías registradas en ${chain.label}: ${config.contractId}`);
+  if (!chain.enabled) console.info(`Sin SOLANA_PROGRAM_ID: las garantías se guardan solo en este servidor (modo demo).`);
+  else console.info(`Garantías registradas en Solana: ${config.contractId}`);
   return true;
 });

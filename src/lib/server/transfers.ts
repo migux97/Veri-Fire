@@ -2,7 +2,7 @@
 // The owner's browser creates a random secret for the link and derives an ed25519 key from it (TRANSFER_DOMAIN). Only
 // the public key reaches the server and the contract (offer_transfer). Whoever opens the link derives the same key,
 // signs transfer_message with it and accepts with their own wallet (accept_transfer): the secret never leaves the link.
-// Every call that changes the contract goes in two requests, like activations: without signedTx (signedXdr on Stellar)
+// Every call that changes the contract goes in two requests, like activations: without signedTx
 // the server answers the unsigned transaction for the user's wallet; with it, the server pays and submits it.
 import { shortAddress } from '../format';
 import type { PreparedTransfer, UnsignedTransaction, Warranty } from '../types';
@@ -38,7 +38,7 @@ const exclusive = async <T>(product: Product, task: () => Promise<T>) => {
 };
 
 const requireChain = () => {
-  if (!chain.enabled) throw new HttpError(409, `Las transferencias necesitan ${chain.label} configurado en este servidor.`);
+  if (!chain.enabled) throw new HttpError(409, `Las transferencias necesitan Solana configurado en este servidor.`);
 };
 
 const transferKeyOf = (body: JsonBody) => {
@@ -58,7 +58,7 @@ const ownedProduct = async (body: JsonBody) => {
   if (!chain.isAddress(owner) || !product.claimed || product.owner !== owner) throw new HttpError(403, messages.notOwner);
   if (!isCurrentOnChain(product)) {
     anchorPendingProducts();
-    throw new HttpError(409, `Este producto todavía se está registrando en ${chain.label}. Probá de nuevo en unos minutos.`, { retryable: true });
+    throw new HttpError(409, `Este producto todavía se está registrando en Solana. Probá de nuevo en unos minutos.`, { retryable: true });
   }
   return { product, owner, ref: refOf(product) };
 };
@@ -84,7 +84,7 @@ const saveAfterChain = () => {
   try {
     saveState();
   } catch (error) {
-    console.error(`La operación ya está en ${chain.label}, pero no se pudo guardar el estado local:`, error);
+    console.error(`La operación ya está en Solana, pero no se pudo guardar el estado local:`, error);
   }
 };
 
@@ -117,15 +117,11 @@ export const cancelTransfer = async (body: JsonBody, baseUrl: string): Promise<S
 export const prepareTransfer = async (body: JsonBody): Promise<PreparedTransfer> => {
   const { product, recipient, ref } = await offeredProduct(body);
   const expiresAt = openTransferOf(product)?.expiresAt ?? new Date().toISOString();
-  const feeAccount = chain.feeAccount();
   return {
     token: product.token,
     model: product.model,
     from: shortAddress(product.owner),
     message: (await chain.transferMessage(ref, recipient)).toString('base64'),
-    chain: chain.kind,
-    // Stellar only: an existing account for the payment with which the Cavos kit creates a new user's account.
-    ...(feeAccount ? { feeAccount } : {}),
     expiresAt,
     expiresInMs: Math.max(0, new Date(expiresAt).getTime() - Date.now())
   };
@@ -157,7 +153,7 @@ export const acceptTransfer = async (body: JsonBody, baseUrl: string): Promise<S
     try {
       recordEvent(product, { kind: 'transferred', at: new Date().toISOString(), tx: txHash, ...(from ? { from } : {}), to: recipient });
     } catch (error) {
-      console.error(`La transferencia de ${product.token} ya está en ${chain.label}, pero no se pudo guardar acá:`, error);
+      console.error(`La transferencia de ${product.token} ya está en Solana, pero no se pudo guardar acá:`, error);
     }
   }
   return { warranty: warrantyView(product, baseUrl) };

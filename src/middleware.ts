@@ -2,7 +2,7 @@ import { defineMiddleware, sequence } from 'astro:middleware';
 import { CORS_ORIGIN } from 'astro:env/server';
 import { LOCALE_COOKIE, toLocale } from './lib/locale';
 
-// Printed QR labels and the Cavos Google callback still point at the old .html pages. The `redirects` option of the
+// Printed QR labels still point at the old .html pages. The `redirects` option of the
 // Astro config would drop the query string, which carries the product token, so they are redirected here.
 const LEGACY_PATHS: Record<string, string> = {
   '/index.html': '/login',

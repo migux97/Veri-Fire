@@ -85,11 +85,11 @@ function Issuance({ countries, pricePerToken }: Omit<CompanyIssuanceProps, 'loca
             </div>
             <div>
               <dt>{text.currency}</dt>
-              <dd>XLM</dd>
+              <dd>USDC</dd>
             </div>
             <div>
               <dt>{text.method}</dt>
-              <dd>Cosmos Pay</dd>
+              <dd>Solana Pay</dd>
             </div>
           </dl>
           <p>{text.infoAmount}</p>

@@ -3,7 +3,6 @@ import StandaloneHeader from '@/components/layout/StandaloneHeader.astro';
 import { WorkspaceSync } from '@/components/company/WorkspaceSync';
 import { PurchaseForm } from '@/components/purchase/PurchaseForm';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { publicConfig } from '@/lib/server/config';
 import { countryOptions } from '@/lib/server/countries';
 ---
 
@@ -20,10 +19,10 @@ import { countryOptions } from '@/lib/server/countries';
 
     <section class="verify-card" aria-labelledby="new-batch-title">
       <span class="eyebrow">Nuevo lote</span>
-      <h1 id="new-batch-title">Comprá tokens con Cosmos Pay</h1>
-      <p class="verify-message">Cada token tiene un precio fijo en XLM. El lote se genera cuando Cosmos Pay confirma el pago, y queda guardado en Mis lotes con sus etiquetas.</p>
+      <h1 id="new-batch-title">Comprá tokens con Solana Pay</h1>
+      <p class="verify-message">Cada token tiene un precio fijo en USDC. El lote se genera cuando se confirma el pago en Solana, y queda guardado en Mis lotes con sus etiquetas.</p>
       <PurchaseForm client:load countries={countryOptions} />
-      <WorkspaceSync client:load cavosAppId={publicConfig.cavosAppId} />
+      <WorkspaceSync client:load />
     </section>
   </main>
 

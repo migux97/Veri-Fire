@@ -20,7 +20,7 @@ interface ProductHistoryProps {
   locale?: ConsumerLocale;
 }
 
-// Every moment of a product, oldest first. Events backed by a Stellar transaction link to it.
+// Every moment of a product, oldest first. Events backed by a Solana transaction link to it.
 export function ProductHistory({ events, timeZone, locale = 'es' }: ProductHistoryProps) {
   const labels = getConsumerMessages(locale).history;
 

@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { formatCountdown, formatNumber, plural, shortAddress } from '../src/lib/format.ts';
-import { isStellarAddress, normalizeId } from '../src/lib/validation.ts';
+import { isWalletAddress, normalizeId } from '../src/lib/validation.ts';
 
-const ADDRESS = 'GBVVBO5QIKXK4PPKZUGJIIC3ZJXU2RLMJP7P6WZ7OOIVOBXPO4ACGYBZ';
+const ADDRESS = 'F6YopjFsuhvDxUmyCPLbovkqXJ6e5DRXpuf7qRWP3Sx4';
 
 test('a countdown never goes below zero and always shows two digits of seconds', () => {
   const now = Date.parse('2026-01-01T00:00:00.000Z');
@@ -16,7 +16,7 @@ test('a countdown never goes below zero and always shows two digits of seconds',
 });
 
 test('an address is shortened to its ends, and a missing one says so', () => {
-  assert.equal(shortAddress(ADDRESS), 'GBVV…GYBZ');
+  assert.equal(shortAddress(ADDRESS), 'F6Yo…3Sx4');
   assert.equal(shortAddress(null), 'desconocido');
   assert.equal(shortAddress(''), 'desconocido');
 });
@@ -33,14 +33,14 @@ test('plural picks the word by count', () => {
   assert.equal(plural(2, 'lote', 'lotes'), 'lotes');
 });
 
-test('only a real Stellar public key passes as one', () => {
-  assert.equal(isStellarAddress(ADDRESS), true);
-  assert.equal(isStellarAddress(ADDRESS.toLowerCase()), false);
-  assert.equal(isStellarAddress(`${ADDRESS}X`), false);
-  assert.equal(isStellarAddress(ADDRESS.slice(0, -1)), false);
-  // Base32 has no 0, 1 or 8.
-  assert.equal(isStellarAddress(`G0${ADDRESS.slice(2)}`), false);
-  for (const value of [null, undefined, 7, {}, '']) assert.equal(isStellarAddress(value), false);
+test('only a base58 Solana address passes as one', () => {
+  assert.equal(isWalletAddress(ADDRESS), true);
+  assert.equal(isWalletAddress(`${ADDRESS}XXXXXXXXXXXXX`), false);
+  assert.equal(isWalletAddress(ADDRESS.slice(0, 20)), false);
+  // Base58 has no 0, O, I or l.
+  assert.equal(isWalletAddress(`0${ADDRESS.slice(1)}`), false);
+  assert.equal(isWalletAddress(`l${ADDRESS.slice(1)}`), false);
+  for (const value of [null, undefined, 7, {}, '']) assert.equal(isWalletAddress(value), false);
 });
 
 test('product codes are matched without case or stray spaces', () => {

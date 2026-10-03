@@ -15,6 +15,6 @@ export const POST: APIRoute = async ({ request, url, clientAddress }) => {
     if (!purchase) return json({ error: 'La compra no existe.' }, 404);
     return json(await purchaseStatus(purchase, { summaryOnly: false, baseUrl: publicBaseUrl(url) }));
   } catch (error) {
-    return errorResponse(error, 502, 'No se pudo consultar automáticamente el pago.', 'Cosmos automatic status error:');
+    return errorResponse(error, 502, 'No se pudo consultar automáticamente el pago.', 'Solana Pay status error:');
   }
 };

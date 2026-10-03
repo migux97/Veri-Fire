@@ -283,7 +283,7 @@ export function IssuanceConfigurator({
             </div>
             <div>
               <dt>{t.review.amount}</dt>
-              <dd>{pricePerToken ? `${(Number(pricePerToken) * draft.quantity).toFixed(2)} XLM` : t.amountLater}</dd>
+              <dd>{pricePerToken ? `${(Number(pricePerToken) * draft.quantity).toFixed(2)} USDC` : t.amountLater}</dd>
             </div>
             <div>
               <dt>{t.review.label}</dt>

@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { findBrandBySlug, logoBytes } from '@/lib/server/brands';
 
-// The logo a company published, at an address that does not change: buyers see it on each warranty and the company's
-// stellar.toml points to it (ORG_LOGO). It is public on purpose. What it serves is only the PNG the company chose.
+// The logo a company published, at an address that does not change: buyers see it on each warranty. It is public on
+// purpose. What it serves is only the PNG the company chose.
 export const GET: APIRoute = ({ params }) => {
   const brand = params.slug ? findBrandBySlug(params.slug) : undefined;
   const bytes = brand ? logoBytes(brand) : null;

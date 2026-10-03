@@ -7,7 +7,7 @@ import { saveState } from '@/lib/server/store';
 // Mints a single product outside of a batch purchase. Only with ADMIN_API_TOKEN.
 export const POST: APIRoute = async ({ request, url }) => {
   if (!isAdminRequest(request)) {
-    return json({ error: 'No autorizado. Los productos se emiten comprando un lote con Cosmos Pay.' }, 401);
+    return json({ error: 'No autorizado. Los productos se emiten comprando un lote con Solana Pay.' }, 401);
   }
   try {
     const fields = readProductFields(await readJson(request));

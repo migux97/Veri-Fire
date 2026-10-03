@@ -1,6 +1,6 @@
 import { IssuanceConfigurator } from './IssuanceConfigurator';
 import { PhotoPicker } from './PhotoPicker';
-// Company purchase: pay a batch of tokens with Cosmos Pay. Once the payment is confirmed the batch, its labels and its
+// Company purchase: pay a batch of tokens in USDC with Solana Pay. Once the payment is confirmed the batch, its labels and its
 // activation counters live in Mis lotes; this form only creates the purchase and follows its payment.
 import { useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
 import { useCompanyText } from '@/components/company/CompanyText';
@@ -178,15 +178,13 @@ export function PurchaseForm({ countries, batchesHref = '/batches', embedded = f
 
       {payment && (
         <div className="verify-details is-available">
-          <strong>{t.purchase.payTitle(payment.amount, payment.asset || 'XLM', payment.quantity)}</strong>
+          <strong>{t.purchase.payTitle(payment.amount, payment.asset || 'USDC', payment.quantity)}</strong>
           <span>{t.purchase.payNote}</span>
           <PaymentWarning as="span" text={t.purchase.warning} />
           {payment.qr && <img src={payment.qr} alt={t.purchase.qrAlt} width={240} height={240} />}
           {payment.uri && (
             <WalletPayButton
               purchaseId={payment.purchaseId}
-              uri={payment.uri}
-              network={payment.network === 'public' ? 'public' : 'testnet'}
               onPaid={() => {
                 // Checks at once instead of at the next poll.
                 window.clearTimeout(pollTimer.current);

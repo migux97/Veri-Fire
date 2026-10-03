@@ -19,7 +19,7 @@ Each product has **two files**: its public QR (`-qr-publico.svg`) and its secret
 1. **Anyone, no account:** open the public QR (or `https://verifire.cosmosapp.lat/verify?token=<TOKEN>` with any
    token above) to see the product and its issuer, marked "Producto original" because VeriFire verified this company.
 2. **To activate one:** go to `https://verifire.cosmosapp.lat/app`, sign in with your own email, and upload or
-   paste the matching secret QR image. The warranty gets registered on Stellar in your name.
+   paste the matching secret QR image. The warranty gets registered on Solana in your name, and Verifire pays the fee.
 3. Scan the same product's public QR again afterwards: it now shows as activated.
 
 ## Important
@@ -27,4 +27,4 @@ Each product has **two files**: its public QR (`-qr-publico.svg`) and its secret
 - **Each secret QR works only once.** Give each juror a different pair (there are 6). Once used, that unit
   cannot be activated again by anyone else.
 - `VF-D5MB996H` is reserved for the team's own demo recording; use one of the other five for the jury.
-- These are real Stellar **testnet** transactions, not simulated data.
+- These are real Solana **devnet** transactions, not simulated data: each certificate links to Solana Explorer.
