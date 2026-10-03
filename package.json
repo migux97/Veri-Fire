@@ -16,7 +16,9 @@
     "format:check": "prettier --check .",
     "contract:deploy": "node --env-file-if-exists=.env scripts/deploy-contract.ts",
     "contract:upgrade": "node --env-file-if-exists=.env scripts/upgrade-contract.ts",
-    "contract:test-activation": "node --env-file-if-exists=.env scripts/test-activation.ts"
+    "contract:test-activation": "node --env-file-if-exists=.env scripts/test-activation.ts",
+    "test:solana": "cargo test --manifest-path solana/Cargo.toml",
+    "solana:init": "node --env-file-if-exists=.env scripts/solana-init.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.5",
@@ -25,6 +27,7 @@
     "@cosmosapp/pay_sdk": "^1.2.1",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@nanostores/react": "^2.0.1",
+    "@solana/kit": "^8.4.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^17.0.1",
     "astro": "^7.3.2",

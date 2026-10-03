@@ -5,3 +5,4 @@ dist/
 .astro/
 contracts/**/target/
 contracts/**/test_snapshots/
+solana/target/
