@@ -6,7 +6,8 @@ import { postJson } from './api';
 import { bytesToBase64 } from './bytes';
 import { accountKey } from './session';
 import { readStored, writeStored } from './storage';
-import { connectSigningWallet, resolveWalletAddress } from './wallet';
+import { connectSigner } from './signer';
+import { resolveWalletAddress } from './wallet';
 
 // Where the company's panel keeps what the server last said about it, so the settings show it without asking again.
 export const VERIFICATION_EVENT = 'verifire:verification';
@@ -32,7 +33,7 @@ export const writeAdmin = (admin: boolean | undefined) => {
 const signed = async <T>(appId: string, body: Record<string, unknown>, fallbackError: string): Promise<T> => {
   const owner = await resolveWalletAddress(appId);
   const { nonce } = await postJson<{ nonce: string }>('/api/workspace/challenge', { owner }, 'No se pudo preparar la comprobación de tu wallet.');
-  const wallet = await connectSigningWallet(appId, owner);
+  const wallet = await connectSigner(appId, owner);
   const { signature, publicKey } = await wallet.signMessage(nonce);
   return postJson<T>('/api/verification', { owner, nonce, signature: bytesToBase64(signature), publicKey, ...body }, fallbackError);
 };

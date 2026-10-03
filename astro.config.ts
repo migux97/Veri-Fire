@@ -57,6 +57,8 @@ export default defineConfig({
       COSMOS_PAY_DESTINATION: runtimeVar(),
       COSMOS_PAY_AMOUNT: runtimeVar(),
       CAVOS_APP_ID: runtimeVar(),
+      // Privy App ID (dashboard.privy.io): logs buyers and companies in and holds their Solana wallet when CHAIN=solana.
+      PRIVY_APP_ID: runtimeVar(),
       // Enables POST /api/products with `Authorization: Bearer <token>`.
       ADMIN_API_TOKEN: runtimeVar(),
       // Wallets (G...) of the people who verify companies, separated by commas: they open /verificacion.
@@ -73,6 +75,16 @@ export default defineConfig({
       // Old name of STELLAR_ISSUER_SECRET.
       STELLAR_ADMIN_SECRET: runtimeVar(),
       STELLAR_RPC_URL: runtimeVar(),
+      // stellar (default) or solana: the network products are certified on. See docs/migracion-solana.md.
+      CHAIN: runtimeVar(),
+      SOLANA_PROGRAM_ID: runtimeVar(),
+      // Keypair of the server (solana-keygen JSON or base58): registers products. Not the program's admin.
+      SOLANA_MINTER_SECRET: runtimeVar(),
+      // Pays rent and the users' fees. Defaults to the minter.
+      SOLANA_FEE_PAYER_SECRET: runtimeVar(),
+      SOLANA_RPC_URL: runtimeVar(),
+      // devnet (default), testnet or mainnet-beta: only for explorer links.
+      SOLANA_CLUSTER: runtimeVar(),
       // Resend (resend.com): sends the team invitations by email. The sender must belong to a domain verified there.
       RESEND_API_KEY: runtimeVar(),
       RESEND_FROM: runtimeVar()

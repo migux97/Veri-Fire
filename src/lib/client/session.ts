@@ -1,6 +1,7 @@
 // The account stays in this browser; the session in front of it lasts 8 hours from login.
 // Imported by page frontmatter for its constants, so nothing here touches the browser at module load.
 import { readRaw, readStored, removeStored, storedKeys, writeRaw, writeStored } from './storage';
+import { currentPrivyBridge } from './privy-registry';
 
 export const SESSION_KEY = 'verifireAuthSession';
 export const SESSION_MAX_MS = 8 * 60 * 60 * 1000;
@@ -86,7 +87,15 @@ export const accountKey = (name: string, legacyKey?: string) => {
 
 export const leaveSession = (reason: SessionEndReason) => {
   userSession.end();
-  window.location.replace(`/login?sesion=${reason}`);
+  const leave = () => window.location.replace(`/login?sesion=${reason}`);
+  // On Solana the wallet lives in Privy's own session: closing Verifire's closes it too, so the next person to use this
+  // browser does not get it. Leaves anyway if Privy does not answer.
+  const privy = currentPrivyBridge();
+  if (reason === 'cerrada' && privy) {
+    void Promise.race([privy.logout(), new Promise((resolve) => window.setTimeout(resolve, 3000))]).finally(leave);
+    return;
+  }
+  leave();
 };
 
 // For pages behind login. Without an active session it clears any stale one and sends the user to the login page.

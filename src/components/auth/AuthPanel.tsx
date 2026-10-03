@@ -6,15 +6,14 @@ import { persistUser, storedUser, type StoredUser } from '@/lib/client/account';
 import { describeAuthError, googleCallbackUrl, PENDING_CAVOS_AUTH_KEY, sendEmailCode, sendRecoveryLink, verifyEmailCode } from '@/lib/client/email-code';
 import { deviceCodeFor, hashPassword, verifyPassword } from '@/lib/client/password';
 import { GooglePasswordForm, type GooglePasswordKind } from './GooglePasswordForm';
-import { hasPendingClaim, hasPendingTransfer } from '@/lib/client/qr';
+import { hasPendingClaim } from '@/lib/client/qr';
 import { userSession, type SessionEndReason } from '@/lib/client/session';
 import { readStored, writeStored } from '@/lib/client/storage';
 import { connectCavosWallet, createCavosAuth, enableAnywhereRecovery, keyBackupState, rememberDeviceCode, rememberWallet, resetKeyPassword, WRONG_CURRENT_PASSWORD } from '@/lib/client/wallet';
-import { pendingInvite } from '@/lib/client/invitations';
 import { socialRecoveryConfig } from '@/lib/client/social-recovery';
 import { postJson } from '@/lib/client/api';
-import { CREATE_COMPANY_PATH, hasCompanyIntent, hasOwnCompany, rememberCompanyIntent } from '@/lib/client/company-signup';
-import { pendingCompanyInvitation } from '@/lib/client/workspace';
+import { pathAfterLogin } from '@/lib/client/after-login';
+import { hasCompanyIntent, rememberCompanyIntent } from '@/lib/client/company-signup';
 import { errorMessage } from '@/lib/errors';
 import { isStellarAddress } from '@/lib/validation';
 import { EmailCodeForm, type VerificationKind } from './EmailCodeForm';
@@ -165,20 +164,7 @@ export function AuthPanel({ cavosAppId }: AuthPanelProps) {
     const done = loginMode === 'reset' ? 'Listo: tu contraseña cambió. Redirigiendo...' : loginMode === 'login' ? 'Sesión iniciada correctamente. Redirigiendo...' : 'Cuenta creada correctamente. Redirigiendo...';
     showNotice(warning || done, warning ? 'info' : 'success');
     window.setTimeout(() => {
-      // An invitation link opened before logging in comes first: the login was only the way to answer it.
-      const invite = pendingInvite();
-      window.location.href = invite
-        ? `/invite#t=${invite}`
-        : hasPendingClaim() || hasPendingTransfer()
-          ? '/app'
-          : pendingCompanyInvitation(user.email)
-          ? '/choose-workspace'
-          : hasOwnCompany(user)
-            ? '/company'
-            // Came to register a company: the account exists now, the company is the next step.
-            : hasCompanyIntent()
-              ? CREATE_COMPANY_PATH
-              : '/app';
+      window.location.href = pathAfterLogin(user);
     }, warning ? 3200 : 700);
   };
 

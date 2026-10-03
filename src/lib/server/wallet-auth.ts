@@ -4,10 +4,15 @@
 // Cavos signs with the account's *control key*, which is a different address from the account itself, so a signature
 // is accepted only when that key is a signer of the account on-chain. Each nonce works once and for a few minutes, so
 // a captured signature cannot be replayed.
-import { randomUUID } from 'node:crypto';
+//
+// On Solana (CHAIN=solana) the wallet is a plain ed25519 key held by Privy: it signs the nonce's bytes as they are,
+// and the key that signs is the address itself, so there is nothing to look up on-chain.
+import { createPublicKey, randomUUID, verify } from 'node:crypto';
+import { getAddressEncoder, isAddress } from '@solana/kit';
 import { Keypair } from '@stellar/stellar-sdk';
-import { isStellarAddress } from '../validation';
+import { chainKind, isOwnerAddress } from './chain-kind';
 import { HttpError } from './errors';
+import { messages } from './messages';
 import { singleton } from './singleton';
 
 const CAVOS_MESSAGE_PREFIX = 'Cavos Signed Message:\n';
@@ -22,7 +27,7 @@ const dropExpired = (now: number) => {
 };
 
 export const issueNonce = (owner: string): string => {
-  if (!isStellarAddress(owner)) throw new HttpError(400, 'Indica una dirección pública Stellar válida (G...).');
+  if (!isOwnerAddress(owner)) throw new HttpError(400, messages.invalidOwner);
   const now = Date.now();
   dropExpired(now);
   // Oldest first (a Map keeps insertion order): a flood of requests cannot wipe the challenges users are signing.
@@ -60,10 +65,21 @@ interface WalletProof {
   publicKey: string;
 }
 
+// SubjectPublicKeyInfo header of a raw 32-byte Ed25519 public key.
+const ED25519_SPKI_HEADER = Buffer.from('302a300506032b6570032100', 'hex');
+
+const verifiesOnSolana = (owner: string, message: string, signature: Buffer) => {
+  if (!isAddress(owner)) return false;
+  const key = createPublicKey({ key: Buffer.concat([ED25519_SPKI_HEADER, Uint8Array.from(getAddressEncoder().encode(owner))]), format: 'der', type: 'spki' });
+  return verify(null, Buffer.from(message, 'utf8'), key, signature);
+};
+
 // Throws unless the signature proves that whoever sent it holds the wallet of `owner`.
 export const assertWalletOwner = async ({ owner, nonce, signature, publicKey }: WalletProof) => {
   const invalid = () => new HttpError(401, 'No pudimos comprobar que esta wallet sea tuya. Volvé a intentarlo.');
-  if (!isStellarAddress(owner) || !isStellarAddress(publicKey)) throw invalid();
+  const onSolana = chainKind() === 'solana';
+  // On Solana the signing key is the address; publicKey may be omitted or must repeat it.
+  if (!isOwnerAddress(owner) || (onSolana ? publicKey && publicKey !== owner : !isOwnerAddress(publicKey))) throw invalid();
   const pending = nonces.get(nonce);
   // Single use: the nonce is spent whether or not the signature turns out to be good.
   nonces.delete(nonce);
@@ -71,6 +87,16 @@ export const assertWalletOwner = async ({ owner, nonce, signature, publicKey }: 
 
   const bytes = Buffer.from(signature, 'base64');
   if (bytes.length !== 64) throw invalid();
+  if (onSolana) {
+    let valid = false;
+    try {
+      valid = verifiesOnSolana(owner, nonce, bytes);
+    } catch {
+      // A malformed key or signature is the same as a wrong one.
+    }
+    if (!valid) throw invalid();
+    return;
+  }
   try {
     if (!Keypair.fromPublicKey(publicKey).verify(prefixed(nonce), bytes)) throw invalid();
   } catch {

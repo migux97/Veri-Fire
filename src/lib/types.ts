@@ -261,7 +261,14 @@ export interface CountryOption {
   destination: string;
 }
 
-export type PreparedClaim = { onChain: false } | { onChain: true; message: string; feeAccount: string };
+// feeAccount only on Stellar: the account the Cavos kit pays when it creates a new buyer account.
+export type PreparedClaim = { onChain: false } | { onChain: true; chain: 'stellar' | 'solana'; message: string; feeAccount?: string };
+
+// An unsigned transaction for the user's wallet: XDR on Stellar (also as `xdr`, its old name), base64 on Solana.
+export interface UnsignedTransaction {
+  tx: string;
+  xdr?: string;
+}
 
 // What a transfer link offers, shown to the recipient before accepting, and the message the link's key must sign.
 export interface PreparedTransfer {
@@ -269,7 +276,8 @@ export interface PreparedTransfer {
   model: string;
   from: string;
   message: string;
-  feeAccount: string;
+  chain: 'stellar' | 'solana';
+  feeAccount?: string;
   expiresAt: string;
   // The time left, measured by the server: the recipient's clock may be off by minutes.
   expiresInMs: number;

@@ -2,12 +2,12 @@
 // The owner's browser creates a random secret for the link and derives an ed25519 key from it (TRANSFER_DOMAIN). Only
 // the public key reaches the server and the contract (offer_transfer). Whoever opens the link derives the same key,
 // signs transfer_message with it and accepts with their own wallet (accept_transfer): the secret never leaves the link.
-// Every call that changes the contract goes in two requests, like activations: without signedXdr the server answers the
-// unsigned transaction for the user's wallet; with it, the issuing account pays and submits it.
+// Every call that changes the contract goes in two requests, like activations: without signedTx (signedXdr on Stellar)
+// the server answers the unsigned transaction for the user's wallet; with it, the server pays and submits it.
 import { shortAddress } from '../format';
-import type { PreparedTransfer, Warranty } from '../types';
-import { isStellarAddress } from '../validation';
-import { chain } from './chain';
+import type { PreparedTransfer, UnsignedTransaction, Warranty } from '../types';
+import { chain, refOf } from './chain';
+import { signedTxOf, unsigned } from './claims';
 import { reconcileProduct } from './chain-sync';
 import { HttpError } from './errors';
 import { textField, type JsonBody } from './http';
@@ -19,7 +19,7 @@ import { messages } from './messages';
 import { singleton } from './singleton';
 import { saveState, store, type Product } from './store';
 
-type Step = { xdr: string } | { warranty: Warranty };
+type Step = UnsignedTransaction | { warranty: Warranty };
 
 
 // Keeps two requests for the same product from submitting at the same time.
@@ -38,7 +38,7 @@ const exclusive = async <T>(product: Product, task: () => Promise<T>) => {
 };
 
 const requireChain = () => {
-  if (!chain.enabled) throw new HttpError(409, 'Las transferencias necesitan el contrato de Stellar configurado en este servidor.');
+  if (!chain.enabled) throw new HttpError(409, `Las transferencias necesitan ${chain.label} configurado en este servidor.`);
 };
 
 const transferKeyOf = (body: JsonBody) => {
@@ -55,12 +55,12 @@ const ownedProduct = async (body: JsonBody) => {
   // A transfer that landed after this server stopped waiting for it already changed the owner in the contract.
   const product = await reconcileProduct(found);
   const owner = textField(body, 'owner').trim();
-  if (!isStellarAddress(owner) || !product.claimed || product.owner !== owner) throw new HttpError(403, messages.notOwner);
+  if (!chain.isAddress(owner) || !product.claimed || product.owner !== owner) throw new HttpError(403, messages.notOwner);
   if (!isCurrentOnChain(product)) {
     anchorPendingProducts();
-    throw new HttpError(409, 'Este producto todavía se está registrando en el contrato de Stellar. Probá de nuevo en unos minutos.', { retryable: true });
+    throw new HttpError(409, `Este producto todavía se está registrando en ${chain.label}. Probá de nuevo en unos minutos.`, { retryable: true });
   }
-  return { product, owner, tokenId: product.chain.tokenId };
+  return { product, owner, ref: refOf(product) };
 };
 
 // The recipient's side: the product whose open link matches the key derived from the link's secret.
@@ -73,29 +73,29 @@ const offeredProduct = async (body: JsonBody) => {
   if (!isCurrentOnChain(product)) throw new HttpError(404, messages.linkClosed);
   if (!openTransferOf(product)) throw new HttpError(410, messages.linkExpired);
   const recipient = textField(body, 'recipient').trim();
-  if (!isStellarAddress(recipient)) throw new HttpError(400, messages.invalidOwner);
+  if (!chain.isAddress(recipient)) throw new HttpError(400, messages.invalidOwner);
   if (product.owner === recipient) throw new HttpError(409, messages.alreadyYoursShareLink);
-  return { product, recipient, tokenId: product.chain.tokenId };
+  return { product, recipient, ref: refOf(product) };
 };
 
-// After a transaction Stellar already confirmed: failing to save here must not tell the user it failed (the link or
+// After a transaction the network already confirmed: failing to save here must not tell the user it failed (the link or
 // the new owner is on-chain), and the contract is read again the next time the product is (reconcileProduct).
 const saveAfterChain = () => {
   try {
     saveState();
   } catch (error) {
-    console.error('La operación ya está en Stellar, pero no se pudo guardar el estado local:', error);
+    console.error(`La operación ya está en ${chain.label}, pero no se pudo guardar el estado local:`, error);
   }
 };
 
 export const offerTransfer = async (body: JsonBody, baseUrl: string): Promise<Step> => {
-  const { product, owner, tokenId } = await ownedProduct(body);
+  const { product, owner, ref } = await ownedProduct(body);
   const key = transferKeyOf(body);
   const transferKey = Buffer.from(key, 'hex');
-  const signedXdr = textField(body, 'signedXdr');
-  if (!signedXdr) return { xdr: await chain.buildTransferOffer({ tokenId, owner, transferKey }) };
+  const signedTx = signedTxOf(body);
+  if (!signedTx) return unsigned(await chain.buildTransferOffer({ ref, owner, transferKey }));
 
-  await exclusive(product, () => chain.submitTransferOffer({ tokenId, owner, transferKey, signedXdr }));
+  await exclusive(product, () => chain.submitTransferOffer({ ref, owner, transferKey, signedTx }));
   const offeredAt = new Date();
   product.transfer = { key, from: owner, offeredAt: offeredAt.toISOString(), expiresAt: new Date(offeredAt.getTime() + TRANSFER_LINK_MS).toISOString() };
   saveAfterChain();
@@ -103,11 +103,11 @@ export const offerTransfer = async (body: JsonBody, baseUrl: string): Promise<St
 };
 
 export const cancelTransfer = async (body: JsonBody, baseUrl: string): Promise<Step> => {
-  const { product, owner, tokenId } = await ownedProduct(body);
-  const signedXdr = textField(body, 'signedXdr');
-  if (!signedXdr) return { xdr: await chain.buildTransferCancel({ tokenId, owner }) };
+  const { product, owner, ref } = await ownedProduct(body);
+  const signedTx = signedTxOf(body);
+  if (!signedTx) return unsigned(await chain.buildTransferCancel({ ref, owner }));
 
-  await exclusive(product, () => chain.submitTransferCancel({ tokenId, owner, signedXdr }));
+  await exclusive(product, () => chain.submitTransferCancel({ ref, owner, signedTx }));
   delete product.transfer;
   saveAfterChain();
   return { warranty: warrantyView(product, baseUrl) };
@@ -115,30 +115,32 @@ export const cancelTransfer = async (body: JsonBody, baseUrl: string): Promise<S
 
 // What the link offers, so the recipient sees the product before accepting, and the message to sign with its key.
 export const prepareTransfer = async (body: JsonBody): Promise<PreparedTransfer> => {
-  const { product, recipient, tokenId } = await offeredProduct(body);
+  const { product, recipient, ref } = await offeredProduct(body);
   const expiresAt = openTransferOf(product)?.expiresAt ?? new Date().toISOString();
+  const feeAccount = chain.feeAccount();
   return {
     token: product.token,
     model: product.model,
     from: shortAddress(product.owner),
-    message: (await chain.transferMessage(tokenId, recipient)).toString('base64'),
-    // An existing account for the payment with which the Cavos kit creates a new user's account.
-    feeAccount: chain.issuerAddress(),
+    message: (await chain.transferMessage(ref, recipient)).toString('base64'),
+    chain: chain.kind,
+    // Stellar only: an existing account for the payment with which the Cavos kit creates a new user's account.
+    ...(feeAccount ? { feeAccount } : {}),
     expiresAt,
     expiresInMs: Math.max(0, new Date(expiresAt).getTime() - Date.now())
   };
 };
 
 export const acceptTransfer = async (body: JsonBody, baseUrl: string): Promise<Step> => {
-  const { product, recipient, tokenId } = await offeredProduct(body);
-  const signedXdr = textField(body, 'signedXdr');
-  if (!signedXdr) {
+  const { product, recipient, ref } = await offeredProduct(body);
+  const signedTx = signedTxOf(body);
+  if (!signedTx) {
     const signature = Buffer.from(textField(body, 'signature'), 'base64');
     if (signature.length !== 64) throw new HttpError(400, 'La firma del link de transferencia no es válida.');
-    return { xdr: await chain.buildTransferAccept({ tokenId, recipient, signature }) };
+    return unsigned(await chain.buildTransferAccept({ ref, recipient, signature }));
   }
 
-  const txHash = await exclusive(product, () => chain.submitTransferAccept({ tokenId, recipient, signedXdr }));
+  const txHash = await exclusive(product, () => chain.submitTransferAccept({ ref, recipient, signedTx }));
   // The previous owner is the one who opened the link. A request that read the contract meanwhile may already have
   // moved the product to the recipient: then its event only lacks the transaction, instead of recording a second one.
   const from = product.transfer?.from ?? product.owner ?? undefined;
@@ -155,7 +157,7 @@ export const acceptTransfer = async (body: JsonBody, baseUrl: string): Promise<S
     try {
       recordEvent(product, { kind: 'transferred', at: new Date().toISOString(), tx: txHash, ...(from ? { from } : {}), to: recipient });
     } catch (error) {
-      console.error(`La transferencia de ${product.token} ya está en Stellar, pero no se pudo guardar acá:`, error);
+      console.error(`La transferencia de ${product.token} ya está en ${chain.label}, pero no se pudo guardar acá:`, error);
     }
   }
   return { warranty: warrantyView(product, baseUrl) };

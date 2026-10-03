@@ -1,11 +1,14 @@
 ---
 import { AuthPanel } from '@/components/auth/AuthPanel';
+import { PrivyAuthPanel } from '@/components/auth/PrivyAuthPanel';
 import BrandLogo from '@/components/layout/BrandLogo.astro';
 import LandingSprite from '@/components/landing/LandingSprite.astro';
 import PackageArt from '@/components/landing/PackageArt.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { publicConfig } from '@/lib/server/config';
 import '@/styles/auth.css';
+
+const onSolana = publicConfig.chain === 'solana';
 ---
 
 <BaseLayout
@@ -27,7 +30,7 @@ import '@/styles/auth.css';
         <ul class="auth-features">
           <li>Activás la garantía con el QR de adentro de la caja</li>
           <li>Seguís cada lote y dónde se activó cada unidad</li>
-          <li>Tu wallet de Stellar se crea con tu correo, sin comisiones</li>
+          <li>Tu wallet de {onSolana ? 'Solana' : 'Stellar'} se crea con tu correo, sin comisiones</li>
         </ul>
       </div>
 
@@ -44,7 +47,11 @@ import '@/styles/auth.css';
       </nav>
 
       <div class="auth-card">
-        <AuthPanel client:load cavosAppId={publicConfig.cavosAppId} />
+        {onSolana ? (
+          <PrivyAuthPanel client:load privyAppId={publicConfig.privyAppId} />
+        ) : (
+          <AuthPanel client:load cavosAppId={publicConfig.cavosAppId} />
+        )}
       </div>
     </main>
   </div>

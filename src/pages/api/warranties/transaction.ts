@@ -9,6 +9,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     rateLimit('claim-transaction', clientAddress, 30);
     return json(await buildClaimTransaction(await readJsonBody(request, 'Claim request error:')));
   } catch (error) {
-    return errorResponse(error, 502, 'No se pudo preparar la transacción de activación.', 'Stellar build error:');
+    return errorResponse(error, 502, 'No se pudo preparar la transacción de activación.', 'Chain build error:');
   }
 };

@@ -4,6 +4,8 @@ import type { CavosAuth, CavosStellar, Identity } from '@cavos/kit';
 import { errorMessage } from '../errors';
 import { isStellarAddress } from '../validation';
 import { storedUser, updateStoredUser } from './account';
+import { isWalletAddress, onSolana } from './chain';
+import { privyBridge } from './privy-registry';
 import { DEVICE_CODE_KEY, userSession, WALLET_KEY, WALLET_UPDATED_EVENT } from './session';
 import { chooseIdentity } from './identity-choice';
 import { enrollSocialRecovery, recoverWithSocial } from './social-recovery';
@@ -44,7 +46,7 @@ export const createCavosAuth = async (appId: string) => {
 };
 
 export const rememberWallet = (address: string | undefined) => {
-  if (isStellarAddress(address)) {
+  if (isWalletAddress(address)) {
     writeStored(localStorage, WALLET_KEY, { address, connectedAt: new Date().toISOString() });
     window.dispatchEvent(new Event(WALLET_UPDATED_EVENT));
   }
@@ -334,12 +336,19 @@ export const enableSigning = async (appId: string, expectedAddress: string, devi
 
 export const resolveWalletAddress = async (appId: string) => {
   const cached = readStored<{ address?: unknown }>(localStorage, WALLET_KEY);
-  if (isStellarAddress(cached?.address)) return cached.address;
+  if (isWalletAddress(cached?.address)) return cached.address;
   // The account keeps the wallet linked when its email was verified, so a new session does not reconnect to Cavos.
   const account = storedUser();
-  if (isStellarAddress(account?.walletAddress) && account.email === userSession.email()) {
+  if (isWalletAddress(account?.walletAddress) && account.email === userSession.email()) {
     rememberWallet(account.walletAddress);
     return account.walletAddress;
+  }
+  // On Solana the wallet is the one of the Privy session in this browser.
+  if (onSolana()) {
+    const address = (await privyBridge()).address();
+    if (!address) throw new Error('No encontramos tu wallet en este navegador. Cerrá sesión y volvé a entrar.');
+    rememberWallet(address);
+    return address;
   }
   const auth = await createCavosAuth(appId);
   const identity = auth.restoreIdentity();

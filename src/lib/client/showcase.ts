@@ -3,11 +3,11 @@
 import type { Warranty } from '../types';
 import { postJson } from './api';
 import { bytesToBase64 } from './bytes';
-import { connectSigningWallet } from './wallet';
+import { connectSigner } from './signer';
 
 export const setShowcase = async (appId: string, owner: string, token: string, visible: boolean): Promise<Warranty> => {
   const { nonce } = await postJson<{ nonce: string }>('/api/workspace/challenge', { owner }, 'No se pudo preparar la comprobación de tu wallet.');
-  const wallet = await connectSigningWallet(appId, owner);
+  const wallet = await connectSigner(appId, owner);
   const { signature, publicKey } = await wallet.signMessage(nonce);
   return postJson<Warranty>(
     '/api/showcase',

@@ -66,18 +66,26 @@ depende de la cadena, y Solana usa las mismas claves ed25519. Solo cambia el men
 
 La app sigue funcionando sobre Stellar: nada de esta fase cambia su comportamiento.
 
-### Fase 2: wallets y conexión de la app
+### Fase 2: wallets y conexión de la app (rama solana-fase-2)
 
-1. **Elegir la wallet del comprador.** Hay que confirmar si Cavos soporta Solana. Si no, las opciones con login por email
-   y Google sin seed phrase son Privy, Dynamic, Web3Auth o Turnkey; para usuarios cripto, Wallet Standard (Phantom,
-   Solflare, Backpack). Recomendación: Privy o Dynamic, que cubren las dos cosas.
-2. Reemplazar `wallet.ts`, `social-recovery.ts` y `account-data.ts` (el factor multi-dispositivo en data entries de
-   Stellar no existe en Solana; lo resuelve el proveedor de wallet).
-3. `wallet-auth.ts`: pasar a Sign-In With Solana (`signMessage` verificado con la pubkey, sin consultar Horizon).
-4. Cambiar `chain.ts` para elegir `stellar` o `solana` según el entorno, y pasar `claims.ts`, `transfers.ts`,
-   `products.ts`, `chain-sync.ts` y las rutas `/api/warranties/*` y `/api/transfers/*` al cliente nuevo. El flujo en dos
-   pasos (preparar → firmar → enviar) se mantiene; `signedXdr` pasa a ser `signedTx` (base64).
-5. `src/lib/client/activation.ts` no cambia la derivación ni la firma (WebCrypto Ed25519); solo firma el mensaje nuevo.
+Con `CHAIN=solana` la app entera pasa a Solana; sin esa variable sigue igual que antes, sobre Stellar.
+
+1. **Servidor:** `src/lib/server/ledger.ts` define una sola interfaz para las dos cadenas (`stellarLedger` y
+   `solanaLedger`) y `chain.ts` elige una según `CHAIN`. `claims.ts`, `transfers.ts`, `products.ts`, `chain-sync.ts` y
+   las rutas `/api/warranties/*` y `/api/transfers/*` usan esa interfaz. El flujo en dos pasos se mantiene: el servidor
+   responde `{ tx }` (en Stellar también `xdr`, por compatibilidad) y recibe `signedTx` (acepta `signedXdr` igual).
+2. **Prueba de wallet** (`wallet-auth.ts`): en Solana es Sign-In With Solana simple, la firma ed25519 del nonce
+   verificada con la dirección misma, sin consultar la red.
+3. **Wallet:** Privy reemplaza a Cavos. `PrivyBridge` se monta una vez por página (en `BaseLayout`) y registra en
+   `privy-registry.ts` el login, la firma de transacciones y la de mensajes. `src/lib/client/signer.ts` le da a los flujos
+   (activar, transferir, portada, sincronizar la empresa, verificación) la misma interfaz con Cavos o con Privy.
+4. **Login:** en Solana `/login` muestra `PrivyAuthPanel` (correo con código o Google, sin contraseña). Al entrar guarda
+   la misma cuenta y sesión que el login de Cavos, y al cerrar sesión también cierra la de Privy.
+5. Variables nuevas: `PRIVY_APP_ID` (dashboard.privy.io; en el dashboard hay que habilitar email, Google y las wallets
+   embebidas de Solana, y agregar el dominio de la app a los orígenes permitidos).
+
+Queda para más adelante: los pagos de lotes siguen en Stellar con Cosmos Pay (fase 3), y en Solana el servidor no
+importa dueños existentes (`importClaimedProduct`): eso lo hace el script de migración con la llave de admin (fase 4).
 
 ### Fase 3: pagos y seguridad
 
@@ -97,7 +105,7 @@ La app sigue funcionando sobre Stellar: nada de esta fase cambia su comportamien
 
 ## 5. Decisiones pendientes
 
-1. Proveedor de wallet que reemplaza a Cavos (fase 2).
+1. ~~Proveedor de wallet que reemplaza a Cavos (fase 2).~~ Privy.
 2. Si Cosmos Pay cobra en Solana o se pasa a Solana Pay con USDC (fase 3).
 3. Cómo se asignan las direcciones Solana a los dueños actuales de Stellar (fase 4).
 4. Cuentas PDA (esta rama, simple y barato para miles de productos) o NFTs comprimidos con Bubblegum, si se quiere que

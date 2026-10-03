@@ -11,6 +11,6 @@ export const POST: APIRoute = async ({ request, url, clientAddress }) => {
     rateLimit('transfers', clientAddress, 30);
     return json(await acceptTransfer(await readJsonBody(request, 'Transfer request error:'), publicBaseUrl(url)));
   } catch (error) {
-    return errorResponse(error, 502, 'No se pudo completar la transferencia.', 'Stellar transfer error:');
+    return errorResponse(error, 502, 'No se pudo completar la transferencia.', 'Chain transfer error:');
   }
 };

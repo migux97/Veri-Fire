@@ -4,7 +4,9 @@ import '@/styles/brand.css';
 import '@/styles/global.css';
 import { Font } from 'astro:assets';
 import SessionGate from '@/components/layout/SessionGate.astro';
+import { PrivyBridge } from '@/components/wallet/PrivyBridge';
 import { MOTION_KEY, THEME_KEY } from '@/lib/client/theme';
+import { publicConfig } from '@/lib/server/config';
 import { pageLocale } from '@/lib/server/page-locale';
 
 interface Props {
@@ -17,6 +19,8 @@ interface Props {
 }
 
 const { title, description, bodyClass, session = 'public', lang } = Astro.props;
+// On Solana the wallet is Privy's: the client reads the network from these tags and every page mounts its bridge.
+const onSolana = publicConfig.chain === 'solana';
 ---
 
 <!doctype html>
@@ -25,6 +29,7 @@ const { title, description, bodyClass, session = 'public', lang } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="verifire-chain" content={publicConfig.chain} />
     <title>{title}</title>
     <script is:inline define:vars={{ THEME_KEY, MOTION_KEY }}>
       try {
@@ -44,5 +49,6 @@ const { title, description, bodyClass, session = 'public', lang } = Astro.props;
   </head>
   <body class={bodyClass}>
     <slot />
+    {onSolana && <PrivyBridge client:only="react" appId={publicConfig.privyAppId} cluster={publicConfig.solanaCluster} />}
   </body>
 </html>

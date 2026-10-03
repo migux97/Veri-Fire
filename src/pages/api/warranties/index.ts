@@ -22,8 +22,8 @@ export const POST: APIRoute = async ({ request, url, clientAddress }) => {
     rateLimit('claims-submit', clientAddress, 20);
     const body = await readJsonBody(request, 'Claim request error:');
     const baseUrl = publicBaseUrl(url);
-    return json(body['signedXdr'] ? await submitOnChainClaim(body, baseUrl) : claimDemoWarranty(body, baseUrl));
+    return json(body['signedTx'] || body['signedXdr'] ? await submitOnChainClaim(body, baseUrl) : claimDemoWarranty(body, baseUrl));
   } catch (error) {
-    return errorResponse(error, 502, 'No se pudo registrar la activación en Stellar.', 'Stellar claim error:');
+    return errorResponse(error, 502, 'No se pudo registrar la activación en la blockchain.', 'Chain claim error:');
   }
 };

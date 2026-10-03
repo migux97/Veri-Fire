@@ -8,7 +8,7 @@ import type { AccountDataEntry } from './account-data';
 import { bytesToBase64 } from './bytes';
 import { postJson } from './api';
 import type { VerificationState } from '../types';
-import { connectSigningWallet } from './wallet';
+import { connectSigner } from './signer';
 
 export interface RemoteWorkspace {
   owner: string;
@@ -40,7 +40,7 @@ interface WorkspaceChanges {
 // Signing needs the wallet, which needs the Gmail confirmed: the panel keeps working on its own copy when it cannot.
 export const syncWorkspace = async (appId: string, owner: string, changes: WorkspaceChanges = {}): Promise<RemoteWorkspace> => {
   const { nonce } = await postJson<{ nonce: string }>('/api/workspace/challenge', { owner }, 'No se pudo preparar la comprobación de tu wallet.');
-  const wallet = await connectSigningWallet(appId, owner);
+  const wallet = await connectSigner(appId, owner);
   const { signature, publicKey } = await wallet.signMessage(nonce);
   return postJson<RemoteWorkspace>(
     '/api/workspace',

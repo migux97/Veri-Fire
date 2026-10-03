@@ -8,7 +8,7 @@ import { isCurrentOnChain, warrantyView } from './products';
 import { photoOfBatch } from './photos';
 import { showcaseBlockOf } from './showcase-rules';
 import { saveState, store } from './store';
-import { isStellarAddress } from '../validation';
+import { isOwnerAddress } from './chain-kind';
 
 export const SHOWCASE_LIMIT = 12;
 
@@ -38,7 +38,7 @@ export const showcaseItems = (limit = SHOWCASE_LIMIT): ShowcaseItem[] =>
 // The owner (already proven by the signature of the request) shows or hides one of its products.
 export const setShowcase = (owner: string, token: unknown, visible: unknown, baseUrl: string) => {
   const product = typeof token === 'string' ? store.products.get(token.trim().toUpperCase()) : undefined;
-  if (!product?.claimed || !isStellarAddress(owner) || product.owner !== owner) throw new HttpError(404, 'No encontramos ese producto en tu cuenta.');
+  if (!product?.claimed || !isOwnerAddress(owner) || product.owner !== owner) throw new HttpError(404, 'No encontramos ese producto en tu cuenta.');
   if (typeof visible !== 'boolean') throw new HttpError(400, 'Indicá si querés mostrarlo o no.');
   const blocked = visible ? showcaseBlockOf(product.batchId) : null;
   if (blocked === 'photo') throw new HttpError(409, 'Este producto no tiene foto: la empresa que lo emitió todavía no la cargó.');
