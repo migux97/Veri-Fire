@@ -7,9 +7,9 @@ import {
   getBase64Encoder, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, getTransactionDecoder, isAddress,
   partiallySignTransaction, pipe, setTransactionMessageFeePayer, setTransactionMessageLifetimeUsingBlockhash,
   signatureBytes, verifySignature,
-  type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Transaction
+  type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Signature, type Transaction
 } from '@solana/kit';
-import { fetchMint } from '@solana-program/token';
+import { fetchMint, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { HttpError } from './errors.ts';
 import { messages } from './messages.ts';
 import {
@@ -235,6 +235,22 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     return decimals.get(mint) as Promise<number>;
   };
 
+  // What the recipient received in each confirmed transaction, read once: the treasury's history is checked on every poll.
+  const received = new Map<string, Promise<bigint>>();
+  const receivedIn = (signature: string, recipient: Address, mint: Address) => {
+    const key = `${signature}:${recipient}:${mint}`;
+    if (!received.has(key)) {
+      const amount = rpc.getTransaction(signature as Signature, { commitment: 'confirmed', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }).send()
+        .then((tx) => (tx?.meta && !tx.meta.err ? receivedBy(tx.meta, recipient, mint) : 0n));
+      // A failed read is not remembered: the next poll asks again.
+      received.set(key, amount.catch((error: unknown) => {
+        received.delete(key);
+        throw error;
+      }));
+    }
+    return received.get(key) as Promise<bigint>;
+  };
+
   return {
     rpc,
     enabled,
@@ -368,6 +384,21 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
         const tx = await rpc.getTransaction(signature, { commitment: 'confirmed', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }).send();
         if (!tx?.meta || tx.meta.err) continue;
         if (receivedBy(tx.meta, recipient, mint) >= amount) return signature as string;
+      }
+      return null;
+    },
+
+    // A transfer made by hand carries no reference: it is recognized by its exact amount. The signature of a confirmed
+    // transaction after `since` (unix seconds) that moved exactly `amount` of the token to the recipient's wallet and is
+    // not in `used` (payments other purchases already took), or null when there is none yet.
+    findExactTransfer: async ({ recipient, mint, amount, since, used }: { recipient: Address; mint: Address; amount: bigint; since: number; used: Set<string> }) => {
+      const [tokenAccount] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
+      const found = await rpc.getSignaturesForAddress(tokenAccount, { commitment: 'confirmed', limit: 50 }).send();
+      for (const { signature, err, blockTime } of found) {
+        // Newest first: everything after this one is older than the purchase.
+        if (blockTime !== null && Number(blockTime) < since) break;
+        if (err || used.has(signature)) continue;
+        if ((await receivedIn(signature, recipient, mint)) === amount) return signature as string;
       }
       return null;
     }

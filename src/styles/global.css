@@ -2457,12 +2457,46 @@ a.network-status:hover {
   flex: 1 1 0;
 }
 
-/* "Pagar con wallet" under the payment QR. */
+/* The payment link and the transfer by hand, under the payment QR. */
 .wallet-pay {
   display: grid;
   justify-items: start;
   gap: 6px;
   margin-top: 12px;
+}
+
+.manual-transfer {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vf-line);
+}
+
+.manual-transfer dl {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.manual-transfer dt {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.manual-transfer dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+/* A Solana address is 44 characters with no spaces: it breaks anywhere instead of widening the card. */
+.manual-transfer code {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
 }
 
 .wallet-pay-status {

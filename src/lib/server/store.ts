@@ -76,6 +76,9 @@ export interface Purchase extends ProductFields {
   total: string;
   // Solana Pay reference key: the payment of this purchase carries it, which is how it is found on-chain.
   reference: string;
+  // Exact amount for a transfer made by hand, which carries no reference: the total plus a few millionths no other
+  // pending purchase uses, so the payment is recognized by its amount (see purchases.ts).
+  transferAmount?: string;
   createdAt?: string;
   paymentQr: string | null;
   paymentUri: string | null;

@@ -182,7 +182,7 @@ export function PurchaseForm({ countries, batchesHref = '/batches', embedded = f
           <span>{t.purchase.payNote}</span>
           <PaymentWarning as="span" text={t.purchase.warning} />
           {payment.qr && <img src={payment.qr} alt={t.purchase.qrAlt} width={240} height={240} />}
-          {payment.uri && <PaymentLink uri={payment.uri} />}
+          {payment.uri && <PaymentLink uri={payment.uri} recipient={payment.recipient} transferAmount={payment.transferAmount} />}
           <span role="status">{paymentStatus}</span>
         </div>
       )}

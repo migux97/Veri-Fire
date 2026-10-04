@@ -1,5 +1,5 @@
 // Company purchases: a batch of products is paid in USDC with Solana Pay and minted once the payment is confirmed.
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { address, getBase58Decoder } from '@solana/kit';
 import { parseIssuanceOptions } from '../issuance';
 import type { CompanyBatch, CreatedPurchase, PublicBatch, PurchaseStatus, PurchaseSummary } from '../types';
@@ -27,6 +27,33 @@ export const paymentsConfigured = () => isWalletAddress(config.payments.recipien
 
 // The amount of a purchase in the token's base units (USDC has 6 decimals), from its total as text ("12.50").
 const baseUnits = async (total: string) => toBaseUnits(total, await solana.tokenDecimals(address(config.payments.mint)));
+
+// A transfer made by hand (copying the treasury's address, without the QR) carries no reference key, so it is told apart
+// by its amount: the total plus between 1 and 9999 millionths of USDC (less than one cent), unique among pending purchases.
+const MICROS = 1_000_000;
+const newTransferAmount = (total: string) => {
+  const base = Math.round(Number(total) * MICROS);
+  const taken = new Set([...store.purchases.values()].filter((purchase) => !purchase.batchId).map((purchase) => purchase.transferAmount));
+  for (;;) {
+    const amount = ((base + 1 + randomInt(9999)) / MICROS).toFixed(6);
+    if (!taken.has(amount)) return amount;
+  }
+};
+
+// Purchases created before transfers by hand existed get their amount the first time they are checked.
+const transferAmountOf = (purchase: Purchase) => {
+  if (purchase.batchId || purchase.transferAmount) return purchase.transferAmount ?? null;
+  purchase.transferAmount = newTransferAmount(purchase.total);
+  try {
+    saveState();
+  } catch (error) {
+    console.error(`No se pudo guardar el monto de transferencia de ${purchase.purchaseId}:`, error);
+  }
+  return purchase.transferAmount;
+};
+
+// Payments already taken by a purchase, so one transfer never pays two of them.
+const usedPayments = () => new Set([...store.purchases.values()].map((purchase) => purchase.txHash).filter((hash): hash is string => Boolean(hash)));
 
 // What every payment of this purchase has to match: the treasury, the token, the total and the purchase's own key.
 const paymentOf = async (purchase: Purchase) => ({
@@ -114,10 +141,11 @@ export const createBatchPayment = async (body: JsonBody): Promise<CreatedPurchas
   const reference = getBase58Decoder().decode(randomBytes(32));
   const uri = paymentUrl({ total, reference, quantity, model: fields.model });
   const qr = await qrImage(uri);
+  const transferAmount = newTransferAmount(total);
   // The payment QR is kept so a pending purchase can be reopened from the company's list of batches.
   store.purchases.set(purchaseId, {
     purchaseId, quantity, ...fields, ...(configuration ? { configuration } : {}), ...(support ? { support } : {}), total, reference,
-    createdAt: new Date().toISOString(), paymentQr: qr, paymentUri: uri
+    transferAmount, createdAt: new Date().toISOString(), paymentQr: qr, paymentUri: uri
   });
   try {
     saveState();
@@ -126,7 +154,10 @@ export const createBatchPayment = async (body: JsonBody): Promise<CreatedPurchas
     store.purchases.delete(purchaseId);
     throw error;
   }
-  return { purchaseId, quantity, amount: total, asset: ASSET, reference, status: 'pending', network: config.network, uri, qr };
+  return {
+    purchaseId, quantity, amount: total, asset: ASSET, reference, status: 'pending', network: config.network, uri, qr,
+    recipient: config.payments.recipient, transferAmount
+  };
 };
 
 // Idempotent: concurrent status checks for the same purchase create a single batch.
@@ -160,7 +191,13 @@ const purchaseSummary = (purchase: Purchase): PurchaseSummary => {
     // Purchases made before createdAt was stored use the date their products were created.
     createdAt: purchase.createdAt ?? tokens[0]?.createdAt ?? null,
     batchId: purchase.batchId ?? null,
-    payment: purchase.batchId ? null : { qr: purchase.paymentQr ?? null, uri: purchase.paymentUri ?? null, network: config.network },
+    payment: purchase.batchId ? null : {
+      qr: purchase.paymentQr ?? null,
+      uri: purchase.paymentUri ?? null,
+      network: config.network,
+      recipient: config.payments.recipient,
+      transferAmount: transferAmountOf(purchase)
+    },
     issuanceTxUrl: chain.isTxId(purchase.txHash) ? chain.explorerTxUrl(purchase.txHash) : null,
     registeredOnChain: tokens.filter(isCurrentOnChain).length,
     pendingOnChain: chain.enabled ? tokens.filter(isPendingOnChain).length : 0,
@@ -188,7 +225,19 @@ export const purchaseStatus = async (purchase: Purchase, { summaryOnly, baseUrl 
   if (!purchase.batchId) {
     let signature;
     try {
-      signature = await solana.findPayment(await paymentOf(purchase));
+      const payment = await paymentOf(purchase);
+      signature = await solana.findPayment(payment);
+      const transferAmount = transferAmountOf(purchase);
+      if (!signature && transferAmount) {
+        signature = await solana.findExactTransfer({
+          recipient: payment.recipient,
+          mint: payment.mint,
+          amount: await baseUnits(transferAmount),
+          // A minute of margin for the clocks of this server and of the cluster.
+          since: Math.floor(Date.parse(purchase.createdAt ?? '1970-01-01') / 1000) - 60,
+          used: usedPayments()
+        });
+      }
     } catch (error) {
       // The list still shows a pending purchase when Solana cannot be reached; the next check retries.
       if (!summaryOnly) throw error;

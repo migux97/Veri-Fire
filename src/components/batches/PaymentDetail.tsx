@@ -22,7 +22,9 @@ export function PaymentDetail({ summary }: PaymentDetailProps) {
       {summary.payment?.qr
         ? <img className="payment-qr" src={summary.payment.qr} alt={text.alt} width={240} height={240} />
         : <p className="batch-item-note is-error">{text.missing}</p>}
-      {summary.payment?.uri && <PaymentLink uri={summary.payment.uri} />}
+      {summary.payment?.uri && (
+        <PaymentLink uri={summary.payment.uri} recipient={summary.payment.recipient} transferAmount={summary.payment.transferAmount} />
+      )}
     </>
   );
 }

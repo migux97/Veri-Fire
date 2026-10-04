@@ -607,8 +607,17 @@ const es = {
       open: 'Abrir en mi wallet',
       copy: 'Copiar link de pago',
       copied: 'Link copiado. Mandáselo a quien paga o abrilo donde tengas tu wallet.',
-      copyFailed: 'No se pudo copiar. Mantené apretado "Abrir en mi wallet" y copiá el enlace.',
-      hint: 'Sirve con cualquier wallet compatible con Solana Pay (Phantom, Solflare...). El link no da acceso a tus lotes ni a tus códigos.'
+      copyFailed: 'No se pudo copiar. Seleccioná el texto y copialo a mano.',
+      hint: 'Sirve con cualquier wallet compatible con Solana Pay (Phantom, Solflare...). El link no da acceso a tus lotes ni a tus códigos.',
+      manualTitle: 'O pagá con una transferencia',
+      manualLead: 'Desde cualquier wallet de Solana, enviá USDC a esta dirección por este monto exacto:',
+      recipient: 'Destinatario',
+      amount: 'Monto exacto',
+      copyRecipient: 'Copiar dirección',
+      copyAmount: 'Copiar monto',
+      recipientCopied: 'Dirección copiada.',
+      amountCopied: 'Monto copiado.',
+      manualNote: 'Mandá exactamente ese monto, con todos sus decimales: los últimos identifican esta compra. Con otro monto el pago no se reconoce solo.'
     }
   },
   photo: {
@@ -1292,8 +1301,17 @@ const en: CompanyMessages = {
       open: 'Open in my wallet',
       copy: 'Copy payment link',
       copied: 'Link copied. Send it to whoever pays or open it where you have your wallet.',
-      copyFailed: 'It could not be copied. Long-press "Open in my wallet" and copy the link.',
-      hint: 'Works with any Solana Pay wallet (Phantom, Solflare...). The link gives no access to your batches or codes.'
+      copyFailed: 'It could not be copied. Select the text and copy it by hand.',
+      hint: 'Works with any Solana Pay wallet (Phantom, Solflare...). The link gives no access to your batches or codes.',
+      manualTitle: 'Or pay with a transfer',
+      manualLead: 'From any Solana wallet, send USDC to this address for this exact amount:',
+      recipient: 'Recipient',
+      amount: 'Exact amount',
+      copyRecipient: 'Copy address',
+      copyAmount: 'Copy amount',
+      recipientCopied: 'Address copied.',
+      amountCopied: 'Amount copied.',
+      manualNote: 'Send exactly that amount, with all its decimals: the last ones identify this purchase. Any other amount is not recognized on its own.'
     }
   },
   photo: {

@@ -201,8 +201,9 @@ export interface PurchaseSummary {
   createdAt: string | null;
   batchId: string | null;
   // The payment QR, kept so a pending purchase can be paid from the list. Null once the batch exists.
-  // network: the Solana cluster where the payment is made.
-  payment: { qr: string | null; uri: string | null; network?: string } | null;
+  // network: the Solana cluster where the payment is made. recipient and transferAmount: the treasury and the exact amount
+  // for a transfer made by hand, without the QR (its last decimals identify the purchase).
+  payment: { qr: string | null; uri: string | null; network?: string; recipient?: string | null; transferAmount?: string | null } | null;
   issuanceTxUrl: string | null;
   registeredOnChain: number;
   pendingOnChain: number;
@@ -227,6 +228,9 @@ export interface CreatedPurchase {
   network: string;
   uri: string;
   qr: string;
+  // For a transfer made by hand: the treasury and the exact amount to send.
+  recipient: string;
+  transferAmount: string;
 }
 
 export type TeamRole = 'admin' | 'operator' | 'auditor' | 'viewer';
