@@ -26,19 +26,19 @@ export default defineConfig({
   },
   // Accounts and sessions live in each browser; the server keeps no per-user state.
   session: false,
-  // The public server (verifire.cosmosapp.lat) sits behind Cloudflare and a reverse proxy. Only for requests to this
-  // domain is the proxy's X-Forwarded-For trusted, so the per-minute limits of the API count per visitor instead of all
-  // of them together as the proxy's address. No protocol here on purpose: the proxy reaches Node over plain http, and a
-  // pattern with https would never match it.
+  // The public servers (verifire.cosmosapp.lat, and verifire-solana.cosmosapp.lat for this Solana version) sit behind
+  // Cloudflare and a reverse proxy. Only for requests to these domains is the proxy's X-Forwarded-For trusted, so the
+  // per-minute limits of the API count per visitor instead of all of them together as the proxy's address. No protocol
+  // here on purpose: the proxy reaches Node over plain http, and a pattern with https would never match it.
   security: {
-    allowedDomains: [{ hostname: 'verifire.cosmosapp.lat' }]
+    allowedDomains: [{ hostname: 'verifire.cosmosapp.lat' }, { hostname: 'verifire-solana.cosmosapp.lat' }]
   },
   // The address the public server and Privy's allowed origins already use.
   server: {
     port: 5501,
     // The dev server only answers to hosts it knows. The public server has run `astro dev` behind nginx, which passes
-    // verifire.cosmosapp.lat as the host; without this every request there is refused.
-    allowedHosts: ['verifire.cosmosapp.lat']
+    // its domain as the host; without this every request there is refused.
+    allowedHosts: ['verifire.cosmosapp.lat', 'verifire-solana.cosmosapp.lat']
   },
   fonts: [
     {
