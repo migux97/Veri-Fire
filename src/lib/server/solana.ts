@@ -72,10 +72,15 @@ export const programErrorOf = (error: unknown): ProgramError | null => {
   return custom === undefined ? null : programErrorName(Number(custom));
 };
 
+// A transaction is valid for about a minute after the server builds it. When the user takes longer to approve it in the
+// wallet, its blockhash is gone: nothing happened on-chain and the user only has to try again.
+const EXPIRED = 'Pasó más de un minuto antes de aprobar la transacción y venció. No se registró nada: volvé a intentarlo y aprobala apenas aparezca.';
+
 const failure = (error: unknown, what: string): Error => {
   const name = programErrorOf(error);
   const message = name ? programMessages[name] : undefined;
   if (message) return new HttpError(409, message);
+  if (JSON.stringify(error ?? '').includes('BlockhashNotFound')) return new HttpError(409, EXPIRED, { retryable: true });
   return new Error(`${what} falló en Solana: ${JSON.stringify(error, (_, value: unknown) => (typeof value === 'bigint' ? value.toString() : value))}`);
 };
 
