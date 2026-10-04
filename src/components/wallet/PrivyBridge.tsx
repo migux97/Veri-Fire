@@ -4,6 +4,7 @@
 import '@/lib/client/node-globals';
 import { PrivyProvider, useLogin, useLogout, usePrivy, type User } from '@privy-io/react-auth';
 import { useCreateWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { createSolanaRpc, createSolanaRpcSubscriptions } from '@solana/kit';
 import { useEffect, useRef, useState } from 'react';
 import { registerPrivyBridge, type PrivyLogin } from '@/lib/client/privy-registry';
 
@@ -15,6 +16,26 @@ interface PrivyBridgeProps {
 type SolanaChain = 'solana:mainnet' | 'solana:devnet' | 'solana:testnet';
 
 const chainOf = (cluster: string): SolanaChain => (cluster === 'mainnet-beta' ? 'solana:mainnet' : cluster === 'testnet' ? 'solana:testnet' : 'solana:devnet');
+
+// Privy signs transactions only for chains it has an RPC for ("No RPC configuration found for chain solana:devnet").
+// The public endpoint of the cluster the server uses is enough: the server builds, pays and sends every transaction.
+const PUBLIC_RPC: Record<SolanaChain, string> = {
+  'solana:mainnet': 'api.mainnet-beta.solana.com',
+  'solana:devnet': 'api.devnet.solana.com',
+  'solana:testnet': 'api.testnet.solana.com'
+};
+
+const rpcsFor = (cluster: string) => {
+  const chain = chainOf(cluster);
+  const host = PUBLIC_RPC[chain];
+  return {
+    [chain]: {
+      rpc: createSolanaRpc(`https://${host}`),
+      rpcSubscriptions: createSolanaRpcSubscriptions(`wss://${host}`),
+      blockExplorerUrl: 'https://explorer.solana.com'
+    }
+  };
+};
 
 const profileOf = (user: User) => ({
   email: user.email?.address ?? user.google?.email ?? '',
@@ -136,7 +157,8 @@ export function PrivyBridge({ appId, cluster }: PrivyBridgeProps) {
       config={{
         loginMethods: ['email', 'google'],
         appearance: { walletChainType: 'solana-only' },
-        embeddedWallets: { solana: { createOnLogin: 'users-without-wallets' }, ethereum: { createOnLogin: 'off' } }
+        embeddedWallets: { solana: { createOnLogin: 'users-without-wallets' }, ethereum: { createOnLogin: 'off' } },
+        solana: { rpcs: rpcsFor(cluster) }
       }}
     >
       <Bridge cluster={cluster} />
