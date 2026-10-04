@@ -239,7 +239,11 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     const [source] = await findAssociatedTokenPda({ owner: payer, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
     const [destination] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
     const transfer = getTransferCheckedInstruction({ source, mint, destination, authority: payer, amount, decimals: await decimalsOf(mint) });
-    return { ...transfer, accounts: [...transfer.accounts, { address: reference, role: AccountRole.READONLY }] };
+    // Given a bare address, the token client does not mark the authority as a signer; the payer's wallet signs it.
+    const accounts = transfer.accounts.map((account) =>
+      account.address === payer ? { address: payer, role: AccountRole.READONLY_SIGNER } : account
+    );
+    return { ...transfer, accounts: [...accounts, { address: reference, role: AccountRole.READONLY }] };
   };
 
   return {
