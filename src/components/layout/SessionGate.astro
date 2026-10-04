@@ -43,9 +43,15 @@ const { mode } = Astro.props;
   } else if (mode === 'protected' && !active) {
     // The guard sends the user to the login page: keep the page hidden so it never flashes.
     document.documentElement.classList.add('is-redirecting');
-  } else if (mode === 'guest' && active) {
-    // Already logged in: leave for the panel before the login form is drawn.
-    document.documentElement.classList.add('is-redirecting');
-    window.location.replace('/app');
+  } else if (mode === 'guest') {
+    if (active) {
+      // Already logged in: leave for the panel before the login form is drawn.
+      document.documentElement.classList.add('is-redirecting');
+      window.location.replace('/app');
+    }
+    // Going back after logging in can restore the login page from the cache, frozen on "Redirigiendo...".
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted && isActive()) window.location.replace('/app');
+    });
   }
 </script>

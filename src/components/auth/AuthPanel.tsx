@@ -65,8 +65,9 @@ export function AuthPanel({ privyAppId }: AuthPanelProps) {
       rememberWallet(user.walletAddress);
       userSession.start(user.email);
       setNotice({ text: 'Sesión iniciada correctamente. Redirigiendo...', tone: 'success' });
+      // Replaces the login page in the history, so going back from the panel does not land on it again.
       window.setTimeout(() => {
-        window.location.href = pathAfterLogin(user);
+        window.location.replace(pathAfterLogin(user));
       }, 700);
     } catch (error) {
       setNotice({ text: errorMessage(error), tone: 'error' });
