@@ -1,7 +1,6 @@
 import { useCompanyText } from '@/components/company/CompanyText';
 import { PaymentWarning } from '@/components/ui/PaymentWarning';
-import { WalletPayButton } from '@/components/purchase/WalletPayButton';
-import { setSummary } from '@/stores/batches';
+import { PaymentLink } from '@/components/purchase/PaymentLink';
 import type { PurchaseSummary } from '@/lib/types';
 
 interface PaymentDetailProps {
@@ -24,11 +23,7 @@ export function PaymentDetail({ summary }: PaymentDetailProps) {
         ? <img className="payment-qr" src={summary.payment.qr} alt={text.alt} width={240} height={240} />
         : <p className="batch-item-note is-error">{text.missing}</p>}
       {summary.payment?.uri && (
-        <WalletPayButton
-          purchaseId={summary.purchaseId}
-          // The list reads the purchase again, so the batch shows up without waiting for the next check.
-          onPaid={(status) => setSummary(summary.purchaseId, status.purchase)}
-        />
+        <PaymentLink uri={summary.payment.uri} recipient={summary.payment.recipient} transferAmount={summary.payment.transferAmount} />
       )}
     </>
   );

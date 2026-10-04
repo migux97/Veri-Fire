@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 
 mod ed25519;
 
-declare_id!("F6YopjFsuhvDxUmyCPLbovkqXJ6e5DRXpuf7qRWP3Sx4");
+declare_id!("6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8");
 
 pub const CONFIG_SEED: &[u8] = b"config";
 pub const PRODUCT_SEED: &[u8] = b"product";

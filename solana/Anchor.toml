@@ -5,11 +5,11 @@ anchor_version = "1.2.0"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-verifire_product = "F6YopjFsuhvDxUmyCPLbovkqXJ6e5DRXpuf7qRWP3Sx4"
-
 [programs.devnet]
-verifire_product = "F6YopjFsuhvDxUmyCPLbovkqXJ6e5DRXpuf7qRWP3Sx4"
+verifire_product = "6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8"
+
+[programs.localnet]
+verifire_product = "6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8"
 
 [provider]
 cluster = "devnet"
@@ -17,3 +17,5 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "cargo test"
+
+[hooks]

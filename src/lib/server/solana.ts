@@ -2,14 +2,14 @@
 // builds the transactions a user's wallet signs, paying their fees. Holds the minter key: never import it in the browser.
 // Products are addressed by their public code (the program's PDA seed), so there is no second token id to keep in sync.
 import {
-  AccountRole, address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
+  address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
   createTransactionMessage, decompileTransactionMessage, getBase58Decoder, getBase58Encoder, getBase64EncodedWireTransaction,
   getBase64Encoder, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, getTransactionDecoder, isAddress,
   partiallySignTransaction, pipe, setTransactionMessageFeePayer, setTransactionMessageLifetimeUsingBlockhash,
   signatureBytes, verifySignature,
-  type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Transaction
+  type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Signature, type Transaction
 } from '@solana/kit';
-import { fetchMint, findAssociatedTokenPda, getTransferCheckedInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+import { fetchMint, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { HttpError } from './errors.ts';
 import { messages } from './messages.ts';
 import {
@@ -72,10 +72,15 @@ export const programErrorOf = (error: unknown): ProgramError | null => {
   return custom === undefined ? null : programErrorName(Number(custom));
 };
 
+// A transaction is valid for about a minute after the server builds it. When the user takes longer to approve it in the
+// wallet, its blockhash is gone: nothing happened on-chain and the user only has to try again.
+const EXPIRED = 'Pasó más de un minuto antes de aprobar la transacción y venció. No se registró nada: volvé a intentarlo y aprobala apenas aparezca.';
+
 const failure = (error: unknown, what: string): Error => {
   const name = programErrorOf(error);
   const message = name ? programMessages[name] : undefined;
   if (message) return new HttpError(409, message);
+  if (JSON.stringify(error ?? '').includes('BlockhashNotFound')) return new HttpError(409, EXPIRED, { retryable: true });
   return new Error(`${what} falló en Solana: ${JSON.stringify(error, (_, value: unknown) => (typeof value === 'bigint' ? value.toString() : value))}`);
 };
 
@@ -235,11 +240,20 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     return decimals.get(mint) as Promise<number>;
   };
 
-  const paymentInstruction = async ({ payer, recipient, mint, amount, reference }: TokenPayment): Promise<Instruction> => {
-    const [source] = await findAssociatedTokenPda({ owner: payer, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
-    const [destination] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
-    const transfer = getTransferCheckedInstruction({ source, mint, destination, authority: payer, amount, decimals: await decimalsOf(mint) });
-    return { ...transfer, accounts: [...transfer.accounts, { address: reference, role: AccountRole.READONLY }] };
+  // What the recipient received in each confirmed transaction, read once: the treasury's history is checked on every poll.
+  const received = new Map<string, Promise<bigint>>();
+  const receivedIn = (signature: string, recipient: Address, mint: Address) => {
+    const key = `${signature}:${recipient}:${mint}`;
+    if (!received.has(key)) {
+      const amount = rpc.getTransaction(signature as Signature, { commitment: 'confirmed', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }).send()
+        .then((tx) => (tx?.meta && !tx.meta.err ? receivedBy(tx.meta, recipient, mint) : 0n));
+      // A failed read is not remembered: the next poll asks again.
+      received.set(key, amount.catch((error: unknown) => {
+        received.delete(key);
+        throw error;
+      }));
+    }
+    return received.get(key) as Promise<bigint>;
   };
 
   return {
@@ -362,14 +376,9 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
       return signature;
     },
 
-    // Solana Pay (https://docs.solanapay.com): a token transfer to the treasury that carries the purchase's reference
-    // key as an extra read-only account, so the payment is found by that key whichever wallet sent it.
+    // Solana Pay (https://docs.solanapay.com): the payer's wallet sends a token transfer to the treasury that carries the
+    // purchase's reference key as an extra read-only account, so the payment is found by that key whichever wallet sent it.
     tokenDecimals: (mint: Address) => decimalsOf(mint),
-
-    buildPayment: async (payment: TokenPayment) => buildUserCall([await paymentInstruction(payment)], 'El pago'),
-
-    submitPayment: async ({ signedTx, ...payment }: TokenPayment & { signedTx: string }) =>
-      submitUserCall(signedTx, payment.payer, async () => [await paymentInstruction(payment)], 'El pago'),
 
     // The signature of a confirmed transaction that carries the reference and moved at least `amount` of the token to
     // the recipient's wallet, or null when there is none yet.
@@ -380,6 +389,21 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
         const tx = await rpc.getTransaction(signature, { commitment: 'confirmed', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }).send();
         if (!tx?.meta || tx.meta.err) continue;
         if (receivedBy(tx.meta, recipient, mint) >= amount) return signature as string;
+      }
+      return null;
+    },
+
+    // A transfer made by hand carries no reference: it is recognized by its exact amount. The signature of a confirmed
+    // transaction after `since` (unix seconds) that moved exactly `amount` of the token to the recipient's wallet and is
+    // not in `used` (payments other purchases already took), or null when there is none yet.
+    findExactTransfer: async ({ recipient, mint, amount, since, used }: { recipient: Address; mint: Address; amount: bigint; since: number; used: Set<string> }) => {
+      const [tokenAccount] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
+      const found = await rpc.getSignaturesForAddress(tokenAccount, { commitment: 'confirmed', limit: 50 }).send();
+      for (const { signature, err, blockTime } of found) {
+        // Newest first: everything after this one is older than the purchase.
+        if (blockTime !== null && Number(blockTime) < since) break;
+        if (err || used.has(signature)) continue;
+        if ((await receivedIn(signature, recipient, mint)) === amount) return signature as string;
       }
       return null;
     }

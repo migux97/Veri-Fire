@@ -581,7 +581,7 @@ const es = {
     payment: {
       pay: (amount: string, asset: string) => `Pagá ${amount} ${asset}`,
       toIssue: (quantity: number, model: string) => ` para emitir ${quantity} ${quantity === 1 ? 'token' : 'tokens'} de ${model}.`,
-      note: 'Escaneá el QR con cualquier wallet de Solana (Phantom, Solflare...) o pagá con tu wallet de Verifire. El lote se genera solo cuando se confirma el pago, y esta tarjeta se actualiza sola.',
+      note: 'Escaneá el QR con cualquier wallet de Solana (Phantom, Solflare...) o compartí el link de pago con quien paga. El lote se genera solo cuando se confirma el pago, y esta tarjeta se actualiza sola.',
       alt: 'QR de pago Solana Pay',
       missing: 'Esta compra no tiene un QR de pago guardado.'
     }
@@ -594,7 +594,7 @@ const es = {
     creating: 'Creando el pago con Solana Pay...',
     createFailed: 'No se pudo crear el pago del lote.',
     payTitle: (amount: string, asset: string, quantity: number) => `Pagá ${amount} ${asset} para emitir ${quantity} ${quantity === 1 ? 'token' : 'tokens'}`,
-    payNote: 'Escaneá el QR con cualquier wallet de Solana o pagá con tu wallet de Verifire. El lote se genera solo cuando se confirma el pago.',
+    payNote: 'Escaneá el QR con cualquier wallet de Solana o compartí el link de pago con quien paga. El lote se genera solo cuando se confirma el pago.',
     qrAlt: 'QR de pago Solana Pay',
     ready: 'Pago confirmado. Tu lote ya está listo en Mis lotes.',
     leaveNote: 'Podés cambiar de pestaña: el pago pendiente queda guardado en Mis lotes.',
@@ -603,15 +603,21 @@ const es = {
     myBatches: 'Ver mis lotes',
     warning:
       'Pagá una sola vez: este QR es una transferencia real y se puede volver a pagar, pero un segundo pago no genera otro lote.',
-    wallet: {
-      action: 'Pagar con wallet',
-      busy: 'Esperando la wallet...',
-      hint: 'Con el USDC de tu wallet de Verifire. Verifire paga la comisión de red.',
-      opening: 'Abrí tu wallet y confirmá el pago.',
-      confirming: 'Pago firmado. Enviándolo a Solana...',
-      paid: 'Pago confirmado. El lote se está generando.',
-      sent: 'Pago enviado. Se confirma en unos segundos.',
-      failed: 'No se pudo completar el pago con la wallet.'
+    link: {
+      open: 'Abrir en mi wallet',
+      copy: 'Copiar link de pago',
+      copied: 'Link copiado. Mandáselo a quien paga o abrilo donde tengas tu wallet.',
+      copyFailed: 'No se pudo copiar. Seleccioná el texto y copialo a mano.',
+      hint: 'Sirve con cualquier wallet compatible con Solana Pay (Phantom, Solflare...). El link no da acceso a tus lotes ni a tus códigos.',
+      manualTitle: 'O pagá con una transferencia',
+      manualLead: 'Desde cualquier wallet de Solana, enviá USDC a esta dirección por este monto exacto:',
+      recipient: 'Destinatario',
+      amount: 'Monto exacto',
+      copyRecipient: 'Copiar dirección',
+      copyAmount: 'Copiar monto',
+      recipientCopied: 'Dirección copiada.',
+      amountCopied: 'Monto copiado.',
+      manualNote: 'Mandá exactamente ese monto, con todos sus decimales: los últimos identifican esta compra. Con otro monto el pago no se reconoce solo.'
     }
   },
   photo: {
@@ -1270,7 +1276,7 @@ const en: CompanyMessages = {
     payment: {
       pay: (amount: string, asset: string) => `Pay ${amount} ${asset}`,
       toIssue: (quantity: number, model: string) => ` to issue ${quantity} ${quantity === 1 ? 'token' : 'tokens'} of ${model}.`,
-      note: 'Scan the QR with any Solana wallet (Phantom, Solflare...) or pay with your Verifire wallet. The batch is issued only once the payment is confirmed, and this card updates on its own.',
+      note: 'Scan the QR with any Solana wallet (Phantom, Solflare...) or share the payment link with whoever pays. The batch is issued only once the payment is confirmed, and this card updates on its own.',
       alt: 'Solana Pay payment QR',
       missing: 'This purchase has no saved payment QR.'
     }
@@ -1283,7 +1289,7 @@ const en: CompanyMessages = {
     creating: 'Creating the Solana Pay payment...',
     createFailed: 'The batch payment could not be created.',
     payTitle: (amount: string, asset: string, quantity: number) => `Pay ${amount} ${asset} to issue ${quantity} ${quantity === 1 ? 'token' : 'tokens'}`,
-    payNote: 'Scan the QR with any Solana wallet or pay with your Verifire wallet. The batch is issued only once the payment is confirmed.',
+    payNote: 'Scan the QR with any Solana wallet or share the payment link with whoever pays. The batch is issued only once the payment is confirmed.',
     qrAlt: 'Solana Pay payment QR',
     ready: 'Payment confirmed. Your batch is ready in My batches.',
     leaveNote: 'You can switch tabs: the pending payment stays in My batches.',
@@ -1291,15 +1297,21 @@ const en: CompanyMessages = {
     seeBatches: 'See payments and batches',
     myBatches: 'See my batches',
     warning: 'Pay only once: this QR is a real transfer and can be paid again, but a second payment does not issue another batch.',
-    wallet: {
-      action: 'Pay with wallet',
-      busy: 'Waiting for the wallet...',
-      hint: 'With the USDC in your Verifire wallet. Verifire pays the network fee.',
-      opening: 'Open your wallet and confirm the payment.',
-      confirming: 'Payment signed. Sending it to Solana...',
-      paid: 'Payment confirmed. The batch is being issued.',
-      sent: 'Payment sent. It is confirmed in a few seconds.',
-      failed: 'The payment could not be completed with the wallet.'
+    link: {
+      open: 'Open in my wallet',
+      copy: 'Copy payment link',
+      copied: 'Link copied. Send it to whoever pays or open it where you have your wallet.',
+      copyFailed: 'It could not be copied. Select the text and copy it by hand.',
+      hint: 'Works with any Solana Pay wallet (Phantom, Solflare...). The link gives no access to your batches or codes.',
+      manualTitle: 'Or pay with a transfer',
+      manualLead: 'From any Solana wallet, send USDC to this address for this exact amount:',
+      recipient: 'Recipient',
+      amount: 'Exact amount',
+      copyRecipient: 'Copy address',
+      copyAmount: 'Copy amount',
+      recipientCopied: 'Address copied.',
+      amountCopied: 'Amount copied.',
+      manualNote: 'Send exactly that amount, with all its decimals: the last ones identify this purchase. Any other amount is not recognized on its own.'
     }
   },
   photo: {
