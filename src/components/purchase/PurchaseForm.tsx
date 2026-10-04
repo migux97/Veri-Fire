@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { PaymentWarning } from '@/components/ui/PaymentWarning';
 import type { Message } from '@/components/ui/StatusMessage';
 import { Toast } from '@/components/ui/Toast';
-import { WalletPayButton } from './WalletPayButton';
+import { PaymentLink } from './PaymentLink';
 import { createPurchase, fetchPurchase, migrateLegacyPurchase, savePurchase } from '@/lib/client/purchases';
 import { saveBatchPhoto } from '@/lib/client/photo';
 import { supportForNewBatch } from '@/lib/client/warranty-settings';
@@ -182,16 +182,7 @@ export function PurchaseForm({ countries, batchesHref = '/batches', embedded = f
           <span>{t.purchase.payNote}</span>
           <PaymentWarning as="span" text={t.purchase.warning} />
           {payment.qr && <img src={payment.qr} alt={t.purchase.qrAlt} width={240} height={240} />}
-          {payment.uri && (
-            <WalletPayButton
-              purchaseId={payment.purchaseId}
-              onPaid={() => {
-                // Checks at once instead of at the next poll.
-                window.clearTimeout(pollTimer.current);
-                void pollPurchase();
-              }}
-            />
-          )}
+          {payment.uri && <PaymentLink uri={payment.uri} />}
           <span role="status">{paymentStatus}</span>
         </div>
       )}

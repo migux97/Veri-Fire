@@ -26,8 +26,9 @@
 - `wallet-auth.ts`: Sign-In With Solana simple. El navegador firma un nonce de un solo uso con su wallet y el servidor
   verifica la firma ed25519 con la dirección misma.
 - **Pagos (Solana Pay):** cada compra tiene una clave `reference` nueva. El QR es un transfer request
-  `solana:<tesorería>?amount=…&spl-token=<USDC>&reference=…`, que paga cualquier wallet de Solana; desde el panel también
-  se paga con la wallet de Privy, y en ese caso Verifire paga la comisión. El servidor encuentra el pago con
+  `solana:<tesorería>?amount=…&spl-token=<USDC>&reference=…`, que paga cualquier wallet de Solana. El panel muestra el QR
+  y el mismo pedido como link de pago, para abrirlo en la wallet del dispositivo o mandárselo a quien paga; no lleva el id
+  de la compra, así que compartirlo no da acceso al lote ni a sus códigos. El servidor encuentra el pago con
   `getSignaturesForAddress(reference)` y solo lo acepta si la tesorería recibió al menos el total en ese token.
 
 ## Cliente

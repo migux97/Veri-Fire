@@ -2,14 +2,14 @@
 // builds the transactions a user's wallet signs, paying their fees. Holds the minter key: never import it in the browser.
 // Products are addressed by their public code (the program's PDA seed), so there is no second token id to keep in sync.
 import {
-  AccountRole, address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
+  address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
   createTransactionMessage, decompileTransactionMessage, getBase58Decoder, getBase58Encoder, getBase64EncodedWireTransaction,
   getBase64Encoder, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, getTransactionDecoder, isAddress,
   partiallySignTransaction, pipe, setTransactionMessageFeePayer, setTransactionMessageLifetimeUsingBlockhash,
   signatureBytes, verifySignature,
   type Address, type Base64EncodedWireTransaction, type Blockhash, type Instruction, type KeyPairSigner, type Transaction
 } from '@solana/kit';
-import { fetchMint, findAssociatedTokenPda, getTransferCheckedInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+import { fetchMint } from '@solana-program/token';
 import { HttpError } from './errors.ts';
 import { messages } from './messages.ts';
 import {
@@ -235,17 +235,6 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     return decimals.get(mint) as Promise<number>;
   };
 
-  const paymentInstruction = async ({ payer, recipient, mint, amount, reference }: TokenPayment): Promise<Instruction> => {
-    const [source] = await findAssociatedTokenPda({ owner: payer, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
-    const [destination] = await findAssociatedTokenPda({ owner: recipient, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS });
-    const transfer = getTransferCheckedInstruction({ source, mint, destination, authority: payer, amount, decimals: await decimalsOf(mint) });
-    // Given a bare address, the token client does not mark the authority as a signer; the payer's wallet signs it.
-    const accounts = transfer.accounts.map((account) =>
-      account.address === payer ? { address: payer, role: AccountRole.READONLY_SIGNER } : account
-    );
-    return { ...transfer, accounts: [...accounts, { address: reference, role: AccountRole.READONLY }] };
-  };
-
   return {
     rpc,
     enabled,
@@ -366,14 +355,9 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
       return signature;
     },
 
-    // Solana Pay (https://docs.solanapay.com): a token transfer to the treasury that carries the purchase's reference
-    // key as an extra read-only account, so the payment is found by that key whichever wallet sent it.
+    // Solana Pay (https://docs.solanapay.com): the payer's wallet sends a token transfer to the treasury that carries the
+    // purchase's reference key as an extra read-only account, so the payment is found by that key whichever wallet sent it.
     tokenDecimals: (mint: Address) => decimalsOf(mint),
-
-    buildPayment: async (payment: TokenPayment) => buildUserCall([await paymentInstruction(payment)], 'El pago'),
-
-    submitPayment: async ({ signedTx, ...payment }: TokenPayment & { signedTx: string }) =>
-      submitUserCall(signedTx, payment.payer, async () => [await paymentInstruction(payment)], 'El pago'),
 
     // The signature of a confirmed transaction that carries the reference and moved at least `amount` of the token to
     // the recipient's wallet, or null when there is none yet.

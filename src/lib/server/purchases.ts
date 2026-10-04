@@ -1,6 +1,6 @@
 // Company purchases: a batch of products is paid in USDC with Solana Pay and minted once the payment is confirmed.
 import { randomBytes, randomUUID } from 'node:crypto';
-import { address, getBase58Decoder, type Address } from '@solana/kit';
+import { address, getBase58Decoder } from '@solana/kit';
 import { parseIssuanceOptions } from '../issuance';
 import type { CompanyBatch, CreatedPurchase, PublicBatch, PurchaseStatus, PurchaseSummary } from '../types';
 import { isWalletAddress, normalizeId } from '../validation';
@@ -180,21 +180,6 @@ export const shipBatch = (purchase: Purchase) => {
     saveState();
   }
   return { purchase: purchaseSummary(purchase) };
-};
-
-// The company pays from its Privy wallet: without signedTx the server answers the payment transaction for it to sign,
-// with it the server pays its fee, sends it and issues the batch. The transaction must be exactly that payment.
-export const payFromWallet = async (purchase: Purchase, body: JsonBody, baseUrl: string) => {
-  const payer = String(body['payer'] ?? '').trim();
-  if (!isWalletAddress(payer)) throw new HttpError(400, 'Indica la wallet que paga.');
-  const status = await purchaseStatus(purchase, { summaryOnly: true, baseUrl });
-  if (status.succeeded) return status;
-  const payment = { ...(await paymentOf(purchase)), payer: address(payer) as Address };
-  const signedTx = String(body['signedTx'] ?? '');
-  if (!signedTx) return { tx: await solana.buildPayment(payment) };
-  const signature = await solana.submitPayment({ ...payment, signedTx });
-  finalizePurchase(purchase, signature);
-  return purchaseStatus(purchase, { summaryOnly: true, baseUrl });
 };
 
 // Checks the payment and returns the batch with its secret codes and QR images. With summaryOnly it returns only
