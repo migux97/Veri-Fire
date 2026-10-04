@@ -1,8 +1,8 @@
 // Mounts Privy once per page when the server runs on Solana (CHAIN=solana) and registers its wallet in privy-registry,
 // so login, transactions and wallet proofs reach it from any island. It draws nothing besides Privy's own modals.
 import { PrivyProvider, useLogin, useLogout, usePrivy, type User } from '@privy-io/react-auth';
-import { useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
-import { useEffect, useRef } from 'react';
+import { useCreateWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useEffect, useRef, useState } from 'react';
 import { registerPrivyBridge, type PrivyLogin } from '@/lib/client/privy-registry';
 
 interface PrivyBridgeProps {
@@ -23,7 +23,13 @@ interface PendingLogin {
   resolve: (login: PrivyLogin) => void;
   reject: (error: Error) => void;
   profile: { email: string; name: string } | null;
+  creating?: boolean;
+  timer?: number;
 }
+
+// Once the user is in, the wallet has this long to show up before the login gives up with a clear message.
+const WALLET_TIMEOUT_MS = 20_000;
+const NO_WALLET = 'Privy no creó tu wallet de Solana. Activá las wallets de Solana en el panel de Privy (Embedded wallets) y volvé a intentar.';
 
 function Bridge({ cluster }: { cluster: string }) {
   const { ready, authenticated, user } = usePrivy();
@@ -31,7 +37,10 @@ function Bridge({ cluster }: { cluster: string }) {
   const { signTransaction } = useSignTransaction();
   const { signMessage } = useSignMessage();
   const { logout } = useLogout();
+  const { createWallet } = useCreateWallet();
   const pendingLogin = useRef<PendingLogin | null>(null);
+  // Bumped when a login starts waiting for its wallet, so the effect below looks again even if nothing else changed.
+  const [waitingSince, setWaitingSince] = useState(0);
   // Logins are by email or Google only, so the one Solana wallet is the embedded one Privy created for the user.
   const wallet = authenticated ? wallets[0] ?? null : null;
   const walletRef = useRef(wallet);
@@ -39,23 +48,47 @@ function Bridge({ cluster }: { cluster: string }) {
   const userRef = useRef(user);
   userRef.current = user;
 
+  const settle = (outcome: { address: string } | Error) => {
+    const pending = pendingLogin.current;
+    if (!pending) return;
+    pendingLogin.current = null;
+    window.clearTimeout(pending.timer);
+    if (outcome instanceof Error) pending.reject(outcome);
+    else if (pending.profile) pending.resolve({ ...pending.profile, address: outcome.address });
+  };
+
+  // The user is in: from here the wallet has WALLET_TIMEOUT_MS to arrive, so the button never spins forever.
+  const awaitWallet = (pending: PendingLogin, profile: { email: string; name: string }) => {
+    pending.profile = profile;
+    window.clearTimeout(pending.timer);
+    pending.timer = window.setTimeout(() => settle(new Error(NO_WALLET)), WALLET_TIMEOUT_MS);
+    setWaitingSince(Date.now());
+  };
+
   const { login } = useLogin({
     onComplete: ({ user: loggedIn }) => {
-      if (pendingLogin.current) pendingLogin.current.profile = profileOf(loggedIn);
+      if (pendingLogin.current) awaitWallet(pendingLogin.current, profileOf(loggedIn));
     },
     onError: (error) => {
-      pendingLogin.current?.reject(new Error(error === 'exited_auth_flow' ? 'Cerraste el acceso antes de terminar.' : 'No se pudo iniciar sesión con Privy.'));
-      pendingLogin.current = null;
+      settle(new Error(error === 'exited_auth_flow' ? 'Cerraste el acceso antes de terminar.' : 'No se pudo iniciar sesión con Privy.'));
     }
   });
 
-  // The login settles once Privy created (or found) the user's Solana wallet, which arrives after onComplete.
+  // The login settles once Privy created (or found) the user's Solana wallet, which arrives after onComplete. When the
+  // app's settings did not create it on login, it is created here once.
   useEffect(() => {
     const pending = pendingLogin.current;
-    if (!pending?.profile || !walletsReady || !wallet) return;
-    pendingLogin.current = null;
-    pending.resolve({ ...pending.profile, address: wallet.address });
-  }, [wallet, walletsReady, user]);
+    if (!pending?.profile || !walletsReady) return;
+    if (wallet) {
+      settle({ address: wallet.address });
+      return;
+    }
+    if (!authenticated || pending.creating) return;
+    pending.creating = true;
+    createWallet()
+      .then(({ wallet: created }) => settle({ address: created.address }))
+      .catch((error: unknown) => settle(new Error(`${NO_WALLET} (${error instanceof Error ? error.message : String(error)})`)));
+  }, [wallet, walletsReady, authenticated, user, createWallet, waitingSince]);
 
   useEffect(() => {
     if (!ready) return;
@@ -74,11 +107,13 @@ function Bridge({ cluster }: { cluster: string }) {
             resolve({ ...profileOf(userRef.current), address: signer.address });
             return;
           }
-          pendingLogin.current?.reject(new Error('Se abrió otro acceso.'));
-          // Logged in but its wallet not loaded yet: the effect above settles it when it arrives.
+          settle(new Error('Se abrió otro acceso.'));
+          // Logged in but its wallet not loaded yet: the effect above settles it when it arrives (or creates it).
           const known = userRef.current;
-          pendingLogin.current = { resolve, reject, profile: known ? profileOf(known) : null };
-          if (!known) login();
+          const pending: PendingLogin = { resolve, reject, profile: null };
+          pendingLogin.current = pending;
+          if (known) awaitWallet(pending, profileOf(known));
+          else login();
         }),
       logout: () => logout(),
       signTransaction: async (transaction) =>
