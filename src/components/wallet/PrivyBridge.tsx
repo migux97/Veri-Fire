@@ -1,5 +1,7 @@
 // Mounts Privy once per page when the server runs on Solana (CHAIN=solana) and registers its wallet in privy-registry,
 // so login, transactions and wallet proofs reach it from any island. It draws nothing besides Privy's own modals.
+// Keep this import first: Privy's Solana signing needs `Buffer` in the browser.
+import '@/lib/client/node-globals';
 import { PrivyProvider, useLogin, useLogout, usePrivy, type User } from '@privy-io/react-auth';
 import { useCreateWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 import { useEffect, useRef, useState } from 'react';
