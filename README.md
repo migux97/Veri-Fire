@@ -4,7 +4,7 @@
 anyone can check who issued a product, and the buyer activates the warranty with a wallet, so the warranty and the
 ownership live on-chain and follow the product when it is resold.
 
-- Live demo: **https://verifire.cosmosapp.lat** (English landing at `/en/`)
+- Live demo: **https://verifire-solana.cosmosapp.lat** (English landing at `/en/`)
 - Anchor program: [`solana/programs/verifire_product`](solana/programs/verifire_product), on **Solana devnet**. No real
   money moves.
 
@@ -113,7 +113,7 @@ Without `SOLANA_PROGRAM_ID` the app runs in **demo mode**: warranties are stored
 so. Set the program and the server's keypair to make them real.
 
 **Try it without installing:**
-1. Open a public verification page: [`/verify?token=VF-013`](https://verifire.cosmosapp.lat/verify?token=VF-013) or [`/verify?token=VF-011`](https://verifire.cosmosapp.lat/verify?token=VF-011).
+1. Open a public verification page: `https://verifire-solana.cosmosapp.lat/verify?token=<public code>`, with the code printed on any public QR.
 2. Sign up at `/login?modo=registro`, choose the company workspace and follow the company steps above.
 3. To see the carousel on the home page, a Verifire administrator has to approve the company that issued the products.
 4. **Or activate a real one yourself:** [`docs/demo-qrs/`](docs/demo-qrs/) has six sealed, unclaimed demo products,
@@ -271,7 +271,7 @@ parameters, so labels already printed keep working. For Privy, the site's addres
 
 ### Production
 
-Verifire runs at **https://verifire.cosmosapp.lat**: a Node server managed with PM2 behind a proxy and Cloudflare. The domain
+Verifire runs at **https://verifire-solana.cosmosapp.lat**: a Node server managed with PM2 behind a proxy and Cloudflare. The domain
 is declared in `astro.config.ts` (`security.allowedDomains`) so the API rate limits count each visitor by their real
 address; change it there if the domain changes. The server guide and install and update scripts live in a separate
 folder outside this repository (`VeriFire-servidor`), together with the access profile, which must never be pushed to
