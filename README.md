@@ -8,6 +8,50 @@ ownership live on-chain and follow the product when it is resold.
 - Anchor program: [`solana/programs/verifire_product`](solana/programs/verifire_product), on **Solana devnet**. No real
   money moves.
 
+## For evaluators
+
+- **Program on Solana devnet:** [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet).
+  Its transaction history shows the deploy, `initialize`, three `mint_product`, two `activate_product` (each one next
+  to its `Ed25519SigVerify` instruction) and one `offer_transfer`.
+- **Where Solana does the work:** [`lib.rs`](solana/programs/verifire_product/src/lib.rs) (instructions and accounts),
+  [`ed25519.rs`](solana/programs/verifire_product/src/ed25519.rs) (reading the signature check from the Instructions
+  sysvar), [`src/lib/server/solana.ts`](src/lib/server/solana.ts) (transactions and fee sponsorship) and
+  [`docs/solana-architecture.md`](docs/solana-architecture.md) (design, security and pending work).
+- **Tests:** `npm run test:solana` (the program, natively) and `npm test` (TypeScript, with vectors shared with Rust).
+
+### How the sealed QR proves ownership
+
+```mermaid
+flowchart LR
+  A["Secret QR<br/>under the seal"] -->|"sha256 + derive<br/>(in the browser)"| B["ed25519 key pair"]
+  B -->|"signs program id ‖ product PDA ‖ buyer"| C["Ed25519SigVerify<br/>native program"]
+  C -->|"previous instruction,<br/>read from the Instructions sysvar"| D["activate_product"]
+  D -->|"owner = buyer<br/>(only once)"| E["Product PDA<br/>['product', code]"]
+```
+
+The secret never travels in a transaction: the program only stores the public key derived from it when the product is
+minted. Because the signed message includes the buyer's address, a copied activation cannot be replayed for someone
+else, and once the PDA has an owner a second activation is refused.
+
+### What a copied label looks like
+
+A public QR is a printed code, so it can be photocopied. What a copy cannot do is activate the product a second time or
+be in two places at once. The public page (`/verify`) shows the unit's state (sealed or activated, activation date,
+coverage and how many owners it has had) and warns the buyer when:
+
+- someone tried to activate it with its secret QR after it already had an owner, or
+- its public QR was checked from two different countries within 48 hours.
+
+The rules live in [`src/lib/scan-signals.ts`](src/lib/scan-signals.ts) and are covered by
+[`tests/scan-signals.test.mjs`](tests/scan-signals.test.mjs).
+
+### Built during the hackathon
+
+The first prototype (September 2026) ran on another chain. On October 3 the on-chain layer was rebuilt from scratch on
+Solana: the Anchor program, its native tests, the Privy embedded wallets, fee sponsorship and Solana Pay batch payments.
+The web app (company panel, buyer panel, public pages and translations) was carried over and adapted. The full history
+is in the git log.
+
 ## The problem
 
 When you buy electronics, watches, perfume or wine, you have to take the seller's word that the product is genuine and
@@ -120,7 +164,7 @@ so. Set the program and the server's keypair to make them real.
    each with its public and secret QR ready to use, and instructions for both.
 
 **Videos:** [full demo walkthrough](PITCH/video-demo.md) and [an external user activating a product with no help from
-the team](PITCH/video-usuario-externo.md).
+the team](PITCH/video-external-user.md).
 
 ## Verifiable on-chain evidence
 
@@ -170,7 +214,7 @@ Planned, not built yet:
 
 ### Program
 
-Design, security decisions and pending work, in Spanish: [`docs/arquitectura-solana.md`](docs/arquitectura-solana.md).
+Design, security decisions and pending work: [`docs/solana-architecture.md`](docs/solana-architecture.md).
 
 `initialize` (upgrade authority only), `update_config`, `mint_product` (minter), `import_claimed_product` (admin),
 `activate_product`, `offer_transfer`, `cancel_transfer` and `accept_transfer`. Each product is a PDA `["product", code]`
@@ -222,7 +266,7 @@ src/
 scripts/            solana-init (TypeScript run by Node)
 tests/              Pure-logic tests, run with `node --test`
 solana/             Anchor workspace: the program, its native tests and shared fixtures
-docs/               Notes on the landing, languages and carousel (Spanish)
+docs/               Solana architecture, landing notes and demo QR codes
 ```
 
 `lib/server` is never imported from the browser: pages pass islands only what `publicConfig` exposes

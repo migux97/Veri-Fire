@@ -1,21 +1,21 @@
 # Landing, languages and carousel notes
 
-Moved out of the main README (in Spanish, as originally written).
+Moved out of the main README.
 
-## Idiomas
+## Languages
 
-La landing está disponible en español en `/` y en inglés en `/en/`, con un selector ES/EN en el encabezado. El idioma
-elegido ahí (o con `?lang=en`) queda en la cookie `verifireLang`, porque las demás pantallas tienen una sola ruta: el
-panel del comprador (`/app`) y las páginas públicas `/verify` y `/batch` lo leen y responden en ese idioma, igual que
-sus fechas y el `lang` del documento. El panel de empresa sigue solo en español.
+The landing is available in Spanish at `/` and in English at `/en/`, with an ES/EN selector in the header. The language
+chosen there (or with `?lang=en`) is kept in the `verifireLang` cookie, because the other screens have a single route:
+the buyer panel (`/app`) and the public pages `/verify` and `/batch` read it and answer in that language, as do their
+dates and the document's `lang`.
 
-- `src/i18n/landing.ts` contiene los textos de interfaz de ambos idiomas, incluidos los nombres accesibles de los controles. Al agregar una clave, completá las dos traducciones.
-- `src/i18n/technical-landing.ts` contiene el hero de doble factor, el auditor de ejemplo, los cinco casos de uso y la documentación de integración en ES/EN.
-- `src/i18n/consumer.ts` contiene el panel del comprador y `src/i18n/verify.ts` las páginas públicas detrás de los QR impresos.
-- `src/components/landing/content.ts` contiene los ejemplos y textos en español; `src/i18n/landing-content.ts` reúne sus traducciones al inglés.
-- Guardá las fechas de ejemplo como `YYYY-MM-DD`; la interfaz las presenta con `Intl.DateTimeFormat` según el idioma de la ruta.
-- `UseCaseCarousel.tsx` usa `useCaseRotation.ts` para rotar relojería, perfumería, vinos, autopartes y cosmética cada 4000 ms. Incluye flechas anterior/siguiente, navegación por teclado y cinco indicadores de ancho fijo. `CaseSpecifications.tsx` presenta el lote y los detalles técnicos de cada ejemplo. `landing-motion.css` combina crossfade de 600 ms y escala 1.05 → 1 al entrar / 1 → 0.95 al salir, con curva `cubic-bezier(.16, 1, .3, 1)`. Los textos entran 75 ms después, durante 550 ms. Los paneles comparten una celda de grid para reservar la altura del más alto y evitar saltos de layout. La barra utiliza una animación lineal persistente de 4000 ms: se pausa/reanuda sin recrearla y conserva su llenado al desvanecerse tras un cambio manual. Con movimiento reducido se omite el movimiento y sus retardos, pero los productos siguen rotando. Las pestañas ocultas suspenden el temporizador hasta volver a la página.
-- El carrusel de industrias conserva el tiempo restante mientras el mouse está sobre la tarjeta, se mantiene un dedo apoyado, se navega con teclado o se abre el historial. Retirar el mouse, soltar el dedo, sacar el foco o cerrar el historial permite reanudar. Pulsar un indicador con mouse o un toque breve no deja la reproducción pausada.
-- Si Windows o el navegador solicitan movimiento reducido, el carrusel usa un desvanecido de 350 ms sin zoom ni desplazamiento. Esta excepción local evita que la regla global de 0.01 ms convierta el cambio en un corte instantáneo; no modifica la preferencia del sistema.
-- `AuditWidget.tsx` mantiene Pulse ANC (VF-1043) fijo e independiente del carrusel. Su único estado local selecciona qué QR inspeccionar; conectores visuales distinguen la etiqueta exterior del precinto interno. Presenta datos ilustrativos de Testnet, sin consultar ni simular una conexión real. Los costos por operación no se expresan como una tarifa fija en dólares.
-- Tailwind está integrado con Vite, con utilidades `tw:` y sin Preflight para preservar el CSS del resto de la aplicación. Los tokens, códigos de lote, rutas internas e identificadores de producto no se traducen.
+- `src/i18n/landing.ts` holds the interface texts in both languages, including the accessible names of the controls. When adding a key, fill in both translations.
+- `src/i18n/technical-landing.ts` holds the two-factor hero, the sample auditor, the five use cases and the integration docs in ES/EN.
+- `src/i18n/consumer.ts` holds the buyer panel and `src/i18n/verify.ts` the public pages behind the printed QRs.
+- `src/components/landing/content.ts` holds the examples and texts in Spanish; `src/i18n/landing-content.ts` gathers their English translations.
+- Store sample dates as `YYYY-MM-DD`; the interface presents them with `Intl.DateTimeFormat` in the route's language.
+- `UseCaseCarousel.tsx` uses `useCaseRotation.ts` to rotate watches, perfume, wine, auto parts and cosmetics every 4000 ms. It has previous/next arrows, keyboard navigation and five fixed-width indicators. `CaseSpecifications.tsx` presents the batch and the technical details of each example. `landing-motion.css` combines a 600 ms crossfade with a 1.05 → 1 scale on enter and 1 → 0.95 on exit, with a `cubic-bezier(.16, 1, .3, 1)` curve. Texts enter 75 ms later, over 550 ms. Panels share one grid cell to reserve the tallest one's height and avoid layout shifts. The bar uses a persistent 4000 ms linear animation: it pauses and resumes without being recreated and keeps its fill when it fades after a manual change. With reduced motion, movement and its delays are skipped, but products keep rotating. Hidden tabs suspend the timer until the page is visible again.
+- The industry carousel keeps the remaining time while the mouse is over the card, a finger stays down, the keyboard is used or the history is open. Moving the mouse away, lifting the finger, removing focus or closing the history resumes it. Clicking an indicator with the mouse or a short tap does not leave playback paused.
+- If Windows or the browser asks for reduced motion, the carousel uses a 350 ms fade without zoom or movement. This local exception keeps the global 0.01 ms rule from turning the change into an instant cut; it does not change the system preference.
+- `AuditWidget.tsx` keeps Pulse ANC (VF-1043) fixed and independent of the carousel. Its only local state selects which QR to inspect; visual connectors tell the outer label from the inner seal. It presents illustrative data, without querying or simulating a real connection. Per-operation costs are not shown as a fixed dollar fee.
+- Tailwind is integrated through Vite, with `tw:` utilities and no Preflight, to keep the rest of the app's CSS intact. Tokens, batch codes, internal routes and product identifiers are not translated.
