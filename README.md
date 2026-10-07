@@ -128,9 +128,12 @@ All of this is on Solana **devnet**.
 
 | What | Value |
 | --- | --- |
-| VeriFire program | `SOLANA_PROGRAM_ID` after `anchor keys sync` (link it on Solana Explorer here) |
-| Fee payer and minter (pays fees, signs registrations) | The address of `SOLANA_MINTER_SECRET` |
-| Treasury (receives Solana Pay payments) | `SOLANA_PAY_RECIPIENT` |
+| VeriFire program | [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet) |
+| Treasury (receives Solana Pay payments in USDC) | [`8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK`](https://explorer.solana.com/address/8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK?cluster=devnet) |
+| Fee payer and minter (pays fees, signs registrations) | The fee payer of the program's `mint_product` transactions in the explorer above |
+
+The program id is also declared in [`lib.rs`](solana/programs/verifire_product/src/lib.rs) (`declare_id!`) and in
+[`Anchor.toml`](solana/Anchor.toml).
 
 Each activated product shows its own "View on Solana" link on its warranty card and history. The app only shows a
 certificate link when a real transaction exists.
