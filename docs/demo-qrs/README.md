@@ -16,9 +16,9 @@ Each product has **two files**: its public QR (`-qr-publico.svg`) and its secret
 
 ## How to try it
 
-1. **Anyone, no account:** open the public QR (or `https://verifire.cosmosapp.lat/verify?token=<TOKEN>` with any
+1. **Anyone, no account:** open the public QR (or `https://verifire-solana.cosmosapp.lat/verify?token=<TOKEN>` with any
    token above) to see the product and its issuer, marked "Producto original" because VeriFire verified this company.
-2. **To activate one:** go to `https://verifire.cosmosapp.lat/app`, sign in with your own email, and upload or
+2. **To activate one:** go to `https://verifire-solana.cosmosapp.lat/app`, sign in with your own email, and upload or
    paste the matching secret QR image. The warranty gets registered on Solana in your name, and Verifire pays the fee.
 3. Scan the same product's public QR again afterwards: it now shows as activated.
 
