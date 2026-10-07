@@ -3,22 +3,31 @@
 // Every call that changes a product on behalf of a user goes in two requests: build answers the unsigned transaction
 // (a base64 wire transaction) for the user's wallet, and submit takes it back signed, checks it is exactly that call,
 // pays its fee and sends it.
-import { createSolanaClient, isSolanaAddress, isTxSignature, explorerTxUrl, type SolanaConfig } from './solana';
+import { createSolanaClient, isSolanaAddress, isTxSignature, explorerTxUrl, type BatchToRegister, type SolanaConfig, type UnitOnChain } from './solana';
 import { activationKeyFor } from './solana-keys';
+import { leafHash, merkleTree } from './solana-program';
 
-// A registered product: the program addresses it by its public code (its PDA seed); the token id is its serial number.
+export type { BatchToRegister };
+
+// A registered product: the program addresses it by its public code (its certificate's PDA seed); the token id is its
+// serial number.
 export interface ProductRef {
   tokenId: number;
   code: string;
 }
 
-export interface ProductToRegister {
-  token: string;
-  model: string;
-  lot: string;
-  destination: string;
-  secretCode: string;
+export type BatchUnit = BatchToRegister['units'][number];
+
+// A unit and every unit of its registered batch, in their order: what its activation proof is built from.
+export interface UnitInBatch {
+  batchCode: string;
+  index: number;
+  units: BatchUnit[];
 }
+
+// Root of the batch's Merkle tree and the proof of each unit (see merkleTree in solana-program.ts).
+export const batchTree = (units: readonly BatchUnit[]) =>
+  merkleTree(units.map((unit, index) => leafHash(index, activationKeyFor(unit.secretCode), unit.token)));
 
 export interface LedgerProduct {
   claimed: boolean;
@@ -34,12 +43,14 @@ export interface Ledger {
   isTxId: (value: unknown) => value is string;
   explorerTxUrl: (tx: string) => string;
   activationKeyFor: (secret: string) => Buffer;
-  productByCode: (code: string) => Promise<{ tokenId: number; activationKey: Buffer } | null>;
+  // The registered batch with this code, or null.
+  batchByCode: (batchCode: string) => Promise<{ root: Buffer; count: number; firstTokenId: number } | null>;
+  // Sealed (no certificate yet) until it is activated.
   readProduct: (ref: ProductRef) => Promise<LedgerProduct>;
-  mintProduct: (product: ProductToRegister) => Promise<{ tokenId: number; mintTx: string }>;
+  registerBatch: (batch: BatchToRegister) => Promise<{ firstTokenId: number; tx: string }>;
   activationMessage: (ref: ProductRef, claimant: string) => Promise<Buffer>;
-  buildActivation: (call: { ref: ProductRef; claimant: string; signature: Uint8Array }) => Promise<string>;
-  submitActivation: (call: { ref: ProductRef; claimant: string; signedTx: string }) => Promise<string>;
+  buildActivation: (call: { ref: ProductRef; unit: UnitInBatch; claimant: string; signature: Uint8Array }) => Promise<string>;
+  submitActivation: (call: { ref: ProductRef; unit: UnitInBatch; claimant: string; signedTx: string }) => Promise<string>;
   buildTransferOffer: (call: { ref: ProductRef; owner: string; transferKey: Uint8Array }) => Promise<string>;
   submitTransferOffer: (call: { ref: ProductRef; owner: string; transferKey: Uint8Array; signedTx: string }) => Promise<string>;
   buildTransferCancel: (call: { ref: ProductRef; owner: string }) => Promise<string>;
@@ -53,6 +64,11 @@ export const solanaLedger = (config: SolanaConfig): Ledger => {
   const client = createSolanaClient(config);
   // Addresses reach here already checked with isAddress.
   const solana = (value: string) => value as Parameters<typeof client.activationMessage>[1];
+  const unitOnChain = ({ code }: ProductRef, { batchCode, index, units }: UnitInBatch): UnitOnChain => {
+    const unit = units[index];
+    if (!unit || unit.token !== code) throw new Error(`El producto ${code} no está en la posición ${index} del lote ${batchCode}.`);
+    return { code, batchCode, index, activationKey: activationKeyFor(unit.secretCode), proof: batchTree(units).proofs[index] ?? [] };
+  };
   return {
     enabled: client.enabled,
     deploymentId: config.programId,
@@ -60,19 +76,20 @@ export const solanaLedger = (config: SolanaConfig): Ledger => {
     isTxId: (value: unknown): value is string => isTxSignature(value),
     explorerTxUrl: (tx) => explorerTxUrl(tx, client.cluster),
     activationKeyFor,
-    productByCode: async (code) => {
-      const product = await client.readProduct(code);
-      return product ? { tokenId: product.tokenId, activationKey: Buffer.from(product.activationKey) } : null;
+    batchByCode: async (batchCode) => {
+      const batch = await client.readBatch(batchCode);
+      return batch ? { root: Buffer.from(batch.root), count: batch.count, firstTokenId: batch.firstTokenId } : null;
     },
     readProduct: async ({ code }) => {
-      const product = await client.readProduct(code);
-      if (!product) throw new Error(`El producto ${code} no está registrado en el programa de Solana.`);
-      return { claimed: product.claimed, owner: product.owner, transferKey: product.transferKey };
+      const certificate = await client.readCertificate(code);
+      return certificate
+        ? { claimed: true, owner: certificate.owner, transferKey: certificate.transferKey }
+        : { claimed: false, owner: null, transferKey: null };
     },
-    mintProduct: client.mintProduct,
+    registerBatch: client.registerBatch,
     activationMessage: ({ code }, claimant) => client.activationMessage(code, solana(claimant)),
-    buildActivation: ({ ref, claimant, signature }) => client.buildActivation({ code: ref.code, claimant: solana(claimant), signature }),
-    submitActivation: ({ ref, claimant, signedTx }) => client.submitActivation({ code: ref.code, claimant: solana(claimant), signedTx }),
+    buildActivation: ({ ref, unit, claimant, signature }) => client.buildActivation({ unit: unitOnChain(ref, unit), claimant: solana(claimant), signature }),
+    submitActivation: ({ ref, unit, claimant, signedTx }) => client.submitActivation({ unit: unitOnChain(ref, unit), claimant: solana(claimant), signedTx }),
     buildTransferOffer: ({ ref, owner, transferKey }) => client.buildTransferOffer({ code: ref.code, owner: solana(owner), transferKey }),
     submitTransferOffer: ({ ref, owner, transferKey, signedTx }) =>
       client.submitTransferOffer({ code: ref.code, owner: solana(owner), transferKey, signedTx }),

@@ -1,5 +1,5 @@
 // Codificación del programa Anchor solana/programs/verifire_product: direcciones (PDA), datos de instrucciones,
-// lectura de cuentas y los mensajes que firman las claves de activación y de transferencia. No toca la red, así que
+// lectura de cuentas, el árbol de Merkle de cada lote y los mensajes que firman las claves de activación y de transferencia. No toca la red, así que
 // lo usan el servidor, los scripts y los tests. Los vectores de solana/fixtures/vectors.json, que también comprueban
 // los tests en Rust, garantizan que ambos lados codifican igual.
 import { createHash } from 'node:crypto';
@@ -29,6 +29,11 @@ const accountDiscriminator = (name: string) => sha256(`account:${name}`).subarra
 
 // Borsh mínimo: lo justo para los tipos del programa.
 const concat = (...parts: Uint8Array[]) => Uint8Array.from(Buffer.concat(parts));
+const u32 = (value: number) => {
+  const bytes = Buffer.alloc(4);
+  bytes.writeUInt32LE(value);
+  return bytes;
+};
 const i64 = (value: number | bigint) => {
   const bytes = Buffer.alloc(8);
   bytes.writeBigInt64LE(BigInt(value));
@@ -46,20 +51,32 @@ const fixed32 = (value: Uint8Array) => {
 };
 const option = (value: Uint8Array | null | undefined) => (value ? concat(Uint8Array.of(1), value) : Uint8Array.of(0));
 
-export interface ProductArgs {
-  publicCode: string;
+const vec32 = (items: readonly Uint8Array[]) => concat(u32(items.length), ...items.map(fixed32));
+
+const code = (value: string) => {
+  const length = utf8.encode(value).length;
+  if (length === 0 || length > MAX_CODE_BYTES) throw new Error(`El código público debe tener entre 1 y ${MAX_CODE_BYTES} bytes.`);
+  return string(value);
+};
+
+export interface BatchArgs {
+  batchCode: string;
+  // Raíz del árbol de hojas leafHash(índice, clave de activación, código) de las unidades del lote (ver merkleTree).
+  root: Uint8Array;
+  count: number;
   model: string;
   lot: string;
   destination: string;
-  // Clave pública ed25519 derivada del secreto de adentro de la caja.
-  activationKey: Uint8Array;
 }
 
-const productArgs = (args: ProductArgs) => {
-  const codeBytes = utf8.encode(args.publicCode).length;
-  if (codeBytes === 0 || codeBytes > MAX_CODE_BYTES) throw new Error(`El código público debe tener entre 1 y ${MAX_CODE_BYTES} bytes.`);
-  return concat(string(args.publicCode), string(args.model), string(args.lot), string(args.destination), fixed32(args.activationKey));
-};
+export interface ActivationArgs {
+  publicCode: string;
+  // Posición de la unidad en su lote: fija su token id.
+  index: number;
+  // Clave pública ed25519 derivada del secreto de adentro de la caja.
+  activationKey: Uint8Array;
+  proof: readonly Uint8Array[];
+}
 
 export const instructionData = {
   initialize: (minter: Address, offerCooldownSeconds: number) =>
@@ -70,10 +87,15 @@ export const instructionData = {
     option(changes.minter ? addressBytes(changes.minter) : null),
     option(changes.offerCooldownSeconds === undefined ? null : i64(changes.offerCooldownSeconds))
   ),
-  mintProduct: (args: ProductArgs) => concat(instructionDiscriminator('mint_product'), productArgs(args)),
-  importClaimedProduct: (args: ProductArgs, owner: Address) =>
-    concat(instructionDiscriminator('import_claimed_product'), productArgs(args), addressBytes(owner)),
-  activateProduct: () => concat(instructionDiscriminator('activate_product')),
+  registerBatch: (args: BatchArgs) => concat(
+    instructionDiscriminator('register_batch'), code(args.batchCode), fixed32(args.root), u32(args.count),
+    string(args.model), string(args.lot), string(args.destination)
+  ),
+  importClaimedProduct: (publicCode: string, owner: Address) =>
+    concat(instructionDiscriminator('import_claimed_product'), code(publicCode), addressBytes(owner)),
+  activateProduct: (args: ActivationArgs) => concat(
+    instructionDiscriminator('activate_product'), code(args.publicCode), u32(args.index), fixed32(args.activationKey), vec32(args.proof)
+  ),
   offerTransfer: (transferKey: Uint8Array) => concat(instructionDiscriminator('offer_transfer'), fixed32(transferKey)),
   cancelTransfer: () => concat(instructionDiscriminator('cancel_transfer')),
   acceptTransfer: () => concat(instructionDiscriminator('accept_transfer'))
@@ -82,21 +104,64 @@ export const instructionData = {
 export const configAddress = async (programId: Address) =>
   (await getProgramDerivedAddress({ programAddress: programId, seeds: ['config'] }))[0];
 
-export const productAddress = async (programId: Address, publicCode: string) =>
-  (await getProgramDerivedAddress({ programAddress: programId, seeds: ['product', utf8.encode(publicCode)] }))[0];
+export const batchAddress = async (programId: Address, batchCode: string) =>
+  (await getProgramDerivedAddress({ programAddress: programId, seeds: ['batch', utf8.encode(batchCode)] }))[0];
+
+// El certificado de un producto: existe solo desde que se activa.
+export const certificateAddress = async (programId: Address, publicCode: string) =>
+  (await getProgramDerivedAddress({ programAddress: programId, seeds: ['certificate', utf8.encode(publicCode)] }))[0];
 
 export const programDataAddress = async (programId: Address) =>
   (await getProgramDerivedAddress({ programAddress: BPF_LOADER_UPGRADEABLE, seeds: [addressBytes(programId)] }))[0];
 
-/** Bytes que firma una clave de activación o de transferencia: dominio || programa || producto || cuenta. */
-export const signedMessage = (domain: string, programId: Address, product: Address, account: Address) =>
-  concat(utf8.encode(domain), addressBytes(programId), addressBytes(product), addressBytes(account));
+// Árbol de Merkle de un lote, igual que leaf_hash, node_hash y merkle_root del programa.
+const hashParts = (...parts: Uint8Array[]) => {
+  const hash = createHash('sha256');
+  for (const part of parts) hash.update(part);
+  return new Uint8Array(hash.digest());
+};
 
-export const activationMessage = (programId: Address, product: Address, claimant: Address) =>
-  signedMessage(ACTIVATION_DOMAIN, programId, product, claimant);
+/** sha256(0x00 || índice u32 LE || clave de activación || código público). */
+export const leafHash = (index: number, activationKey: Uint8Array, publicCode: string) =>
+  hashParts(Uint8Array.of(0), u32(index), fixed32(activationKey), utf8.encode(publicCode));
 
-export const transferMessage = (programId: Address, product: Address, recipient: Address) =>
-  signedMessage(TRANSFER_DOMAIN, programId, product, recipient);
+/** sha256(0x01 || menor || mayor): los pares van ordenados, así la prueba no necesita posiciones. */
+export const nodeHash = (a: Uint8Array, b: Uint8Array) =>
+  Buffer.compare(Buffer.from(a), Buffer.from(b)) <= 0 ? hashParts(Uint8Array.of(1), a, b) : hashParts(Uint8Array.of(1), b, a);
+
+export const merkleRoot = (leaf: Uint8Array, proof: readonly Uint8Array[]) => proof.reduce(nodeHash, leaf);
+
+/** Raíz y prueba de cada hoja. En un nivel impar el último nodo sube sin pareja. */
+export const merkleTree = (leaves: readonly Uint8Array[]) => {
+  if (leaves.length === 0) throw new Error('Un lote necesita al menos una unidad.');
+  const proofs: Uint8Array[][] = leaves.map(() => []);
+  const positions = leaves.map((_, index) => index);
+  let level = [...leaves];
+  while (level.length > 1) {
+    positions.forEach((position, leaf) => {
+      const sibling = level[position ^ 1];
+      if (sibling) proofs[leaf]!.push(sibling);
+      positions[leaf] = position >> 1;
+    });
+    const next: Uint8Array[] = [];
+    for (let index = 0; index < level.length; index += 2) {
+      const right = level[index + 1];
+      next.push(right ? nodeHash(level[index]!, right) : level[index]!);
+    }
+    level = next;
+  }
+  return { root: level[0]!, proofs };
+};
+
+/** Bytes que firma una clave de activación o de transferencia: dominio || programa || certificado || cuenta. */
+export const signedMessage = (domain: string, programId: Address, certificate: Address, account: Address) =>
+  concat(utf8.encode(domain), addressBytes(programId), addressBytes(certificate), addressBytes(account));
+
+export const activationMessage = (programId: Address, certificate: Address, claimant: Address) =>
+  signedMessage(ACTIVATION_DOMAIN, programId, certificate, claimant);
+
+export const transferMessage = (programId: Address, certificate: Address, recipient: Address) =>
+  signedMessage(TRANSFER_DOMAIN, programId, certificate, recipient);
 
 /**
  * Instrucción del programa nativo Ed25519SigVerify con una firma y todos los datos adentro (mismo formato que
@@ -137,59 +202,67 @@ export const instructions = {
     accounts: [writable(await configAddress(programId)), readonlySigner(admin)],
     data: instructionData.updateConfig(changes)
   }),
-  mintProduct: async (programId: Address, minter: Address, payer: Address, args: ProductArgs): Promise<Instruction> => ({
+  registerBatch: async (programId: Address, minter: Address, payer: Address, args: BatchArgs): Promise<Instruction> => ({
     programAddress: programId,
     accounts: [
-      writable(await configAddress(programId)), readonlySigner(minter), writable(await productAddress(programId, args.publicCode)),
+      writable(await configAddress(programId)), readonlySigner(minter), writable(await batchAddress(programId, args.batchCode)),
       writableSigner(payer), readonly(SYSTEM_PROGRAM)
     ],
-    data: instructionData.mintProduct(args)
+    data: instructionData.registerBatch(args)
   }),
-  importClaimedProduct: async (programId: Address, admin: Address, payer: Address, args: ProductArgs, owner: Address): Promise<Instruction> => ({
+  importClaimedProduct: async (programId: Address, admin: Address, payer: Address, publicCode: string, owner: Address): Promise<Instruction> => ({
     programAddress: programId,
     accounts: [
-      writable(await configAddress(programId)), readonlySigner(admin), writable(await productAddress(programId, args.publicCode)),
+      writable(await configAddress(programId)), readonlySigner(admin), writable(await certificateAddress(programId, publicCode)),
       writableSigner(payer), readonly(SYSTEM_PROGRAM)
     ],
-    data: instructionData.importClaimedProduct(args, owner)
+    data: instructionData.importClaimedProduct(publicCode, owner)
   }),
-  activateProduct: (programId: Address, product: Address, claimant: Address): Instruction => ({
+  // payer paga el rent del certificado: es el servidor, que también paga la comisión.
+  activateProduct: async (programId: Address, batch: Address, claimant: Address, payer: Address, args: ActivationArgs): Promise<Instruction> => ({
     programAddress: programId,
-    accounts: [writable(product), readonlySigner(claimant), readonly(INSTRUCTIONS_SYSVAR)],
-    data: instructionData.activateProduct()
+    accounts: [
+      readonly(batch), writable(await certificateAddress(programId, args.publicCode)), readonlySigner(claimant), writableSigner(payer),
+      readonly(INSTRUCTIONS_SYSVAR), readonly(SYSTEM_PROGRAM)
+    ],
+    data: instructionData.activateProduct(args)
   }),
-  offerTransfer: async (programId: Address, product: Address, owner: Address, transferKey: Uint8Array): Promise<Instruction> => ({
+  offerTransfer: async (programId: Address, certificate: Address, owner: Address, transferKey: Uint8Array): Promise<Instruction> => ({
     programAddress: programId,
-    accounts: [readonly(await configAddress(programId)), writable(product), readonlySigner(owner)],
+    accounts: [readonly(await configAddress(programId)), writable(certificate), readonlySigner(owner)],
     data: instructionData.offerTransfer(transferKey)
   }),
-  cancelTransfer: async (programId: Address, product: Address, owner: Address): Promise<Instruction> => ({
+  cancelTransfer: async (programId: Address, certificate: Address, owner: Address): Promise<Instruction> => ({
     programAddress: programId,
-    accounts: [readonly(await configAddress(programId)), writable(product), readonlySigner(owner)],
+    accounts: [readonly(await configAddress(programId)), writable(certificate), readonlySigner(owner)],
     data: instructionData.cancelTransfer()
   }),
-  acceptTransfer: (programId: Address, product: Address, recipient: Address): Instruction => ({
+  acceptTransfer: (programId: Address, certificate: Address, recipient: Address): Instruction => ({
     programAddress: programId,
-    accounts: [writable(product), readonlySigner(recipient), readonly(INSTRUCTIONS_SYSVAR)],
+    accounts: [writable(certificate), readonlySigner(recipient), readonly(INSTRUCTIONS_SYSVAR)],
     data: instructionData.acceptTransfer()
   })
 };
 
-export interface OnChainProduct {
+// Un producto activado. Mientras está sellado no tiene certificado.
+export interface OnChainCertificate {
   tokenId: number;
-  publicCode: string;
-  model: string;
-  lot: string;
-  destination: string;
-  activationKey: Uint8Array;
-  // null mientras el producto está sellado.
-  owner: Address | null;
-  claimed: boolean;
+  owner: Address;
   // Clave pública del link de transferencia abierto, si hay uno.
   transferKey: Uint8Array | null;
   // Unix timestamp (segundos); 0 sin link.
   transferExpiresAt: number;
   lastOfferAt: number;
+}
+
+export interface OnChainBatch {
+  root: Uint8Array;
+  firstTokenId: number;
+  count: number;
+  batchCode: string;
+  model: string;
+  lot: string;
+  destination: string;
 }
 
 export interface OnChainConfig {
@@ -213,6 +286,7 @@ class Reader {
     return bytes;
   }
   u8() { return this.take(1)[0] ?? 0; }
+  u32() { return this.take(4).readUInt32LE(); }
   u64() { return Number(this.take(8).readBigUInt64LE()); }
   i64() { return Number(this.take(8).readBigInt64LE()); }
   string() { return this.take(this.take(4).readUInt32LE()).toString('utf8'); }
@@ -227,19 +301,23 @@ const readerFor = (data: Uint8Array, account: string) => {
   return new Reader(buffer, 8);
 };
 
-export const decodeProduct = (data: Uint8Array): OnChainProduct => {
-  const reader = readerFor(data, 'Product');
+export const decodeCertificate = (data: Uint8Array): OnChainCertificate => {
+  const reader = readerFor(data, 'Certificate');
   const tokenId = reader.u64();
-  const publicCode = reader.string();
-  const model = reader.string();
-  const lot = reader.string();
-  const destination = reader.string();
-  const activationKey = reader.bytes32();
-  const owner = reader.option(() => reader.address());
+  const owner = reader.address();
   const transferKey = reader.option(() => reader.bytes32());
   const transferExpiresAt = reader.i64();
   const lastOfferAt = reader.i64();
-  return { tokenId, publicCode, model, lot, destination, activationKey, owner, claimed: owner !== null, transferKey, transferExpiresAt, lastOfferAt };
+  return { tokenId, owner, transferKey, transferExpiresAt, lastOfferAt };
+};
+
+export const decodeBatch = (data: Uint8Array): OnChainBatch => {
+  const reader = readerFor(data, 'Batch');
+  const root = reader.bytes32();
+  const firstTokenId = reader.u64();
+  const count = reader.u32();
+  reader.u8();
+  return { root, firstTokenId, count, batchCode: reader.string(), model: reader.string(), lot: reader.string(), destination: reader.string() };
 };
 
 export const decodeConfig = (data: Uint8Array): OnChainConfig => {
@@ -250,7 +328,8 @@ export const decodeConfig = (data: Uint8Array): OnChainConfig => {
 // Errores del programa (#[error_code], 6000 + índice) con el texto que ve el usuario.
 export const PROGRAM_ERRORS = [
   'NotUpgradeAuthority', 'NotAdmin', 'NotMinter', 'InvalidCode', 'InvalidField', 'InvalidCooldown', 'Overflow',
-  'AlreadyClaimed', 'NotOwner', 'NoOpenTransfer', 'AlreadyOwner', 'TransferExpired', 'OfferTooSoon', 'InvalidSignature'
+  'AlreadyClaimed', 'NotOwner', 'NoOpenTransfer', 'AlreadyOwner', 'TransferExpired', 'OfferTooSoon', 'InvalidSignature',
+  'InvalidProof', 'InvalidBatch'
 ] as const;
 export type ProgramError = (typeof PROGRAM_ERRORS)[number];
 export const programErrorName = (code: number): ProgramError | null => PROGRAM_ERRORS[code - 6000] ?? null;

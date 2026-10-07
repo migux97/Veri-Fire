@@ -51,8 +51,10 @@ export interface Product extends ProductFields {
   claimTransaction?: string;
   // Hex public key derived from the secret code (see activationKeyOf).
   activationKey?: string;
-  // Set once the product is registered in the program. contractId is the program it was registered in.
-  chain?: { tokenId: number; mintTx: string; contractId?: string; at?: string };
+  // Set once the product is registered in the program. contractId is the program it was registered in; batch and index
+  // are its batch account's code and its position in that batch (absent on registrations of the earlier per-product
+  // accounts, which the program no longer reads). mintTx is the batch's registration.
+  chain?: { tokenId: number; mintTx: string; contractId?: string; at?: string; batch?: string; index?: number };
   events?: StoredEvent[];
   // Open transfer link: the public key of its secret, who offered it and when it expires.
   transfer?: { key: string; from: string; offeredAt: string; expiresAt?: string };

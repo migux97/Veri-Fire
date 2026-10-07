@@ -1,6 +1,7 @@
 // Access to the VeriFire program on Solana (solana/programs/verifire_product): the server registers products, and
 // builds the transactions a user's wallet signs, paying their fees. Holds the minter key: never import it in the browser.
-// Products are addressed by their public code (the program's PDA seed), so there is no second token id to keep in sync.
+// A batch is registered as one account holding the Merkle root of its units, so a sealed product takes no account of its
+// own. Activating one creates its certificate (PDA by public code), with a proof that the unit is in its batch.
 import {
   address, appendTransactionMessageInstructions, compileTransaction, createKeyPairSignerFromBytes, createSolanaRpc,
   createTransactionMessage, decompileTransactionMessage, getBase58Decoder, getBase58Encoder, getBase64EncodedWireTransaction,
@@ -13,14 +14,19 @@ import { fetchMint, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solan
 import { HttpError } from './errors.ts';
 import { messages } from './messages.ts';
 import {
-  ED25519_PROGRAM, activationMessage, configAddress, decodeConfig, decodeProduct, ed25519Instruction, instructions, productAddress,
-  programErrorName, transferMessage, type OnChainProduct, type ProductArgs, type ProgramError
+  ED25519_PROGRAM, activationMessage, batchAddress, certificateAddress, configAddress, decodeBatch, decodeCertificate, decodeConfig,
+  ed25519Instruction, instructions, leafHash, merkleTree, programErrorName, transferMessage, type OnChainBatch, type OnChainCertificate,
+  type ProgramError
 } from './solana-program.ts';
 import { activationKeyFor } from './solana-keys.ts';
 
 export { activationKeyFor };
 
 const DEFAULT_RPC_URL = 'https://api.devnet.solana.com';
+// Each proof adds 32 bytes per level to the activation transaction, which must fit in 1232 bytes with the signature
+// instruction: 4096 units (12 levels) take 1115. Purchases are capped well below (MAX_QUANTITY in purchases.ts). Must
+// match MAX_BATCH_UNITS in the program.
+const MAX_BATCH_UNITS = 4096;
 
 export interface SolanaConfig {
   programId: string;
@@ -61,7 +67,8 @@ const programMessages: Partial<Record<ProgramError, string>> = {
   AlreadyOwner: messages.alreadyYours,
   TransferExpired: messages.linkExpired,
   OfferTooSoon: messages.linkTooSoon,
-  InvalidSignature: messages.invalidSignature
+  InvalidSignature: messages.invalidSignature,
+  InvalidProof: messages.qrNotFound
 };
 
 // Transaction errors arrive as { InstructionError: [index, { Custom: code }] }; the program's own codes become
@@ -103,15 +110,21 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     return new Uint8Array(base64.encode(value.data[0]));
   };
 
-  const readProduct = async (code: string): Promise<OnChainProduct | null> => {
-    const data = await accountData(await productAddress(programId(), code));
-    return data ? decodeProduct(data) : null;
+  // Null while the product is sealed: only an activated product has a certificate.
+  const readCertificate = async (code: string): Promise<OnChainCertificate | null> => {
+    const data = await accountData(await certificateAddress(programId(), code));
+    return data ? decodeCertificate(data) : null;
   };
 
-  const requireProduct = async (code: string) => {
-    const product = await readProduct(code);
-    if (!product) throw new HttpError(409, 'Este producto no está registrado en el programa de Solana.');
-    return product;
+  const readBatch = async (batchCode: string): Promise<OnChainBatch | null> => {
+    const data = await accountData(await batchAddress(programId(), batchCode));
+    return data ? decodeBatch(data) : null;
+  };
+
+  const requireCertificate = async (code: string) => {
+    const certificate = await readCertificate(code);
+    if (!certificate) throw new HttpError(409, messages.notOwner);
+    return certificate;
   };
 
   const readConfig = async () => {
@@ -219,17 +232,16 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     return send(signed, what);
   };
 
-  const productArgs = (product: ProductToMint): ProductArgs => ({
-    publicCode: product.token,
-    model: product.model,
-    lot: product.lot,
-    destination: product.destination,
-    activationKey: activationKeyFor(product.secretCode)
-  });
-
   const assertOwnedBy = async (code: string, owner: Address) => {
-    if ((await requireProduct(code)).owner !== owner) throw new HttpError(409, messages.notOwner);
+    if ((await requireCertificate(code)).owner !== owner) throw new HttpError(409, messages.notOwner);
   };
+
+  const certificateOf = (code: string) => certificateAddress(programId(), code);
+
+  const activationInstruction = async (unit: UnitOnChain, claimant: Address) =>
+    instructions.activateProduct(programId(), await batchAddress(programId(), unit.batchCode), claimant, (await feePayerKey()).address, {
+      publicCode: unit.code, index: unit.index, activationKey: unit.activationKey, proof: unit.proof
+    });
 
   const signatureFor = (key: Uint8Array, signature: Uint8Array, message: Uint8Array) => ed25519Instruction(key, signature, message);
 
@@ -261,97 +273,94 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     enabled,
     cluster,
     programId: programIdText,
-    readProduct,
+    readCertificate,
+    readBatch,
     readConfig,
     explorerTxUrl: (signature: string) => explorerTxUrl(signature, cluster),
-    productAddress: (code: string) => productAddress(programId(), code),
+    certificateAddress: certificateOf,
 
-    // Registers a sealed product. Answers with the program's token id and the transaction signature.
-    mintProduct: async (product: ProductToMint) => {
+    // Registers a sealed batch: one account with the Merkle root of its units, in this order. Answers with the token id
+    // of the first unit (the rest follow in order) and the transaction signature.
+    registerBatch: async (batch: BatchToRegister) => {
       const signer = await minterKey();
-      const instruction = await instructions.mintProduct(programId(), signer.address, (await feePayerKey()).address, productArgs(product));
-      const mintTx = await submitServerCall([instruction], [signer], 'El registro del producto');
-      const registered = await requireProduct(product.token);
-      return { tokenId: registered.tokenId, mintTx };
+      if (batch.units.length > MAX_BATCH_UNITS) throw new Error(`Un lote tiene como máximo ${MAX_BATCH_UNITS} unidades.`);
+      const { root } = merkleTree(batch.units.map((unit, index) => leafHash(index, activationKeyFor(unit.secretCode), unit.token)));
+      const instruction = await instructions.registerBatch(programId(), signer.address, (await feePayerKey()).address, {
+        batchCode: batch.batchCode, root, count: batch.units.length, model: batch.model, lot: batch.lot, destination: batch.destination
+      });
+      const tx = await submitServerCall([instruction], [signer], 'El registro del lote');
+      const registered = await readBatch(batch.batchCode);
+      if (!registered || !Buffer.from(registered.root).equals(Buffer.from(root))) throw new Error(`La transacción ${tx} no registró el lote ${batch.batchCode}.`);
+      return { firstTokenId: registered.firstTokenId, tx };
     },
 
-    // Carries over an activated product with its owner. Signed by the admin key, which the migration script loads
-    // locally: it is not part of the server's configuration.
-    importClaimedProduct: async (product: ProductToMint, owner: Address, admin: KeyPairSigner) => {
-      const instruction = await instructions.importClaimedProduct(programId(), admin.address, (await feePayerKey()).address, productArgs(product), owner);
-      const mintTx = await submitServerCall([instruction], [admin], 'La importación del producto');
-      const registered = await requireProduct(product.token);
-      return { tokenId: registered.tokenId, mintTx };
+    // Creates the certificate of an activated product with its owner. Signed by the admin key, which a migration script
+    // loads locally: it is not part of the server's configuration.
+    importClaimedProduct: async (code: string, owner: Address, admin: KeyPairSigner) => {
+      const instruction = await instructions.importClaimedProduct(programId(), admin.address, (await feePayerKey()).address, code, owner);
+      const tx = await submitServerCall([instruction], [admin], 'La importación del producto');
+      return { tokenId: (await requireCertificate(code)).tokenId, tx };
     },
 
-    // Bytes the activation key signs in the browser. No network call: they only bind program, product and claimant.
+    // Bytes the activation key signs in the browser. No network call: they only bind program, certificate and claimant.
     activationMessage: async (code: string, claimant: Address) =>
-      Buffer.from(activationMessage(programId(), await productAddress(programId(), code), claimant)),
+      Buffer.from(activationMessage(programId(), await certificateOf(code), claimant)),
 
-    buildActivation: async ({ code, claimant, signature }: { code: string; claimant: Address; signature: Uint8Array }) => {
-      const product = await requireProduct(code);
-      if (product.claimed) throw new HttpError(409, messages.alreadyClaimedOnChain);
-      const account = await productAddress(programId(), code);
+    buildActivation: async ({ unit, claimant, signature }: { unit: UnitOnChain; claimant: Address; signature: Uint8Array }) => {
+      if (await readCertificate(unit.code)) throw new HttpError(409, messages.alreadyClaimedOnChain);
       return buildUserCall([
-        signatureFor(product.activationKey, signature, activationMessage(programId(), account, claimant)),
-        instructions.activateProduct(programId(), account, claimant)
+        signatureFor(unit.activationKey, signature, activationMessage(programId(), await certificateOf(unit.code), claimant)),
+        await activationInstruction(unit, claimant)
       ], 'La activación');
     },
 
     // Returns the signature once the program shows the new owner.
-    submitActivation: async ({ code, claimant, signedTx }: { code: string; claimant: Address; signedTx: string }) => {
-      const account = await productAddress(programId(), code);
+    submitActivation: async ({ unit, claimant, signedTx }: { unit: UnitOnChain; claimant: Address; signedTx: string }) => {
       const signature = await submitUserCall(signedTx, claimant, async (signed) => {
         if (!signed) throw invalidSignedCall();
-        return [signed, instructions.activateProduct(programId(), account, claimant)];
+        return [signed, await activationInstruction(unit, claimant)];
       }, 'La activación');
-      if ((await requireProduct(code)).owner !== claimant) throw new Error(`La transacción ${signature} no dejó la garantía a nombre de ${claimant}.`);
+      if ((await readCertificate(unit.code))?.owner !== claimant) throw new Error(`La transacción ${signature} no dejó la garantía a nombre de ${claimant}.`);
       return signature;
     },
 
     // The owner opens a transfer link: only the public key of its secret reaches the program.
     buildTransferOffer: async ({ code, owner, transferKey }: { code: string; owner: Address; transferKey: Uint8Array }) => {
       await assertOwnedBy(code, owner);
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       return buildUserCall([await instructions.offerTransfer(programId(), account, owner, transferKey)], 'El link de transferencia');
     },
 
     submitTransferOffer: async ({ code, owner, transferKey, signedTx }: { code: string; owner: Address; transferKey: Uint8Array; signedTx: string }) => {
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       const signature = await submitUserCall(signedTx, owner, async () => [await instructions.offerTransfer(programId(), account, owner, transferKey)], 'El link de transferencia');
-      const offered = (await requireProduct(code)).transferKey;
+      const offered = (await requireCertificate(code)).transferKey;
       if (!offered || !Buffer.from(offered).equals(Buffer.from(transferKey))) throw new Error(`La transacción ${signature} no abrió el link de transferencia.`);
       return signature;
     },
 
     buildTransferCancel: async ({ code, owner }: { code: string; owner: Address }) => {
       await assertOwnedBy(code, owner);
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       return buildUserCall([await instructions.cancelTransfer(programId(), account, owner)], 'La cancelación del link');
     },
 
     submitTransferCancel: async ({ code, owner, signedTx }: { code: string; owner: Address; signedTx: string }) => {
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       const signature = await submitUserCall(signedTx, owner, async () => [await instructions.cancelTransfer(programId(), account, owner)], 'La cancelación del link');
-      if ((await requireProduct(code)).transferKey) throw new Error(`La transacción ${signature} no cerró el link de transferencia.`);
+      if ((await requireCertificate(code)).transferKey) throw new Error(`La transacción ${signature} no cerró el link de transferencia.`);
       return signature;
-    },
-
-    // [expires_at, last_offer_at] of the product's transfer link, in unix seconds (0 when there is none).
-    transferTimes: async (code: string) => {
-      const product = await requireProduct(code);
-      return [product.transferExpiresAt, product.lastOfferAt] as [number, number];
     },
 
     // Bytes the transfer key signs in the recipient's browser.
     transferMessage: async (code: string, recipient: Address) =>
-      Buffer.from(transferMessage(programId(), await productAddress(programId(), code), recipient)),
+      Buffer.from(transferMessage(programId(), await certificateOf(code), recipient)),
 
     buildTransferAccept: async ({ code, recipient, signature }: { code: string; recipient: Address; signature: Uint8Array }) => {
-      const product = await requireProduct(code);
+      const product = await requireCertificate(code);
       if (!product.transferKey) throw new HttpError(409, messages.linkClosed);
       if (product.owner === recipient) throw new HttpError(409, messages.alreadyYours);
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       try {
         return await buildUserCall([
           signatureFor(product.transferKey, signature, transferMessage(programId(), account, recipient)),
@@ -367,12 +376,12 @@ export const createSolanaClient = ({ programId: programIdText, minterSecret, fee
     },
 
     submitTransferAccept: async ({ code, recipient, signedTx }: { code: string; recipient: Address; signedTx: string }) => {
-      const account = await productAddress(programId(), code);
+      const account = await certificateOf(code);
       const signature = await submitUserCall(signedTx, recipient, async (signed) => {
         if (!signed) throw invalidSignedCall();
         return [signed, instructions.acceptTransfer(programId(), account, recipient)];
       }, 'La transferencia');
-      if ((await requireProduct(code)).owner !== recipient) throw new Error(`La transacción ${signature} no dejó el producto a nombre de ${recipient}.`);
+      if ((await requireCertificate(code)).owner !== recipient) throw new Error(`La transacción ${signature} no dejó el producto a nombre de ${recipient}.`);
       return signature;
     },
 
@@ -433,12 +442,24 @@ export const receivedBy = (meta: { preTokenBalances?: readonly TokenBalance[] | 
   return total(meta.postTokenBalances) - total(meta.preTokenBalances);
 };
 
-export interface ProductToMint {
-  token: string;
+// A sealed batch as the program registers it: the Merkle root of its units, in this order.
+export interface BatchToRegister {
+  // Unique in the program: the batch account's PDA seed.
+  batchCode: string;
   model: string;
   lot: string;
   destination: string;
-  secretCode: string;
+  // In the order of their index in the batch.
+  units: { token: string; secretCode: string }[];
+}
+
+// Where a sealed unit is in its registered batch, with the proof the program checks when it is activated.
+export interface UnitOnChain {
+  code: string;
+  batchCode: string;
+  index: number;
+  activationKey: Uint8Array;
+  proof: Uint8Array[];
 }
 
 export type SolanaClient = ReturnType<typeof createSolanaClient>;

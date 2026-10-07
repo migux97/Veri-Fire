@@ -15,7 +15,7 @@ import { textField, type JsonBody } from './http';
 import { secretFromQrKey } from './links';
 import { photoOfBatch } from './photos';
 import { showcaseBlockOf } from './showcase-rules';
-import { activationKeyOf, anchorPendingProducts, isCurrentOnChain, recordRejectedClaim, transferredBy, warrantyView } from './products';
+import { activationKeyOf, anchorPendingProducts, isCurrentOnChain, recordRejectedClaim, transferredBy, unitInBatch, warrantyView } from './products';
 import { messages } from './messages';
 import { singleton } from './singleton';
 import { hashSecret, saveState, store, type Product } from './store';
@@ -77,7 +77,7 @@ const onChainClaim = async (body: JsonBody) => {
     anchorPendingProducts();
     throw new HttpError(409, `Este producto todavía se está registrando en Solana. Probá de nuevo en unos minutos.`, { retryable: true });
   }
-  return { product, owner, ref: refOf(product) };
+  return { product, owner, ref: refOf(product), unit: unitInBatch(product) };
 };
 
 export const prepareClaim = async (body: JsonBody): Promise<PreparedClaim> => {
@@ -94,20 +94,20 @@ export const signedTxOf = (body: JsonBody) => textField(body, 'signedTx');
 export const unsigned = (tx: string): UnsignedTransaction => ({ tx });
 
 export const buildClaimTransaction = async (body: JsonBody) => {
-  const { ref, owner } = await onChainClaim(body);
+  const { ref, unit, owner } = await onChainClaim(body);
   const signature = Buffer.from(textField(body, 'signature'), 'base64');
   if (signature.length !== 64) throw new HttpError(400, 'La firma del QR no es válida.');
-  return unsigned(await chain.buildActivation({ ref, claimant: owner, signature }));
+  return unsigned(await chain.buildActivation({ ref, unit, claimant: owner, signature }));
 };
 
 export const submitOnChainClaim = async (body: JsonBody, baseUrl: string) => {
-  const { product, owner, ref } = await onChainClaim(body);
+  const { product, owner, ref, unit } = await onChainClaim(body);
   if (claimsInFlight.has(product.token)) {
     throw new HttpError(409, `La activación de este producto ya se está registrando en Solana.`, { retryable: true });
   }
   claimsInFlight.add(product.token);
   try {
-    const txHash = await chain.submitActivation({ ref, claimant: owner, signedTx: signedTxOf(body) });
+    const txHash = await chain.submitActivation({ ref, unit, claimant: owner, signedTx: signedTxOf(body) });
     // Adopted meanwhile by another path that reads the contract (a transfer check): it only lacks its transaction.
     if (product.claimed && product.owner === owner) {
       const showcase = wantsShowcase(body, product) && !product.showcase;

@@ -11,8 +11,9 @@ ownership live on-chain and follow the product when it is resold.
 ## For evaluators
 
 - **Program on Solana devnet:** [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet).
-  Its transaction history shows the deploy, `initialize`, three `mint_product`, two `activate_product` (each one next
-  to its `Ed25519SigVerify` instruction) and one `offer_transfer`.
+  Its transaction history shows the deploy, `initialize`, three `mint_product` (the first version, with one account
+  per product), two `activate_product` (each one next to its `Ed25519SigVerify` instruction) and one `offer_transfer`.
+  The current version registers a whole batch in one account (`register_batch`); see [Cost per unit](#cost-per-unit).
 - **Where Solana does the work:** [`lib.rs`](solana/programs/verifire_product/src/lib.rs) (instructions and accounts),
   [`ed25519.rs`](solana/programs/verifire_product/src/ed25519.rs) (reading the signature check from the Instructions
   sysvar), [`src/lib/server/solana.ts`](src/lib/server/solana.ts) (transactions and fee sponsorship) and
@@ -24,14 +25,16 @@ ownership live on-chain and follow the product when it is resold.
 ```mermaid
 flowchart LR
   A["Secret QR<br/>under the seal"] -->|"sha256 + derive<br/>(in the browser)"| B["ed25519 key pair"]
-  B -->|"signs program id ‖ product PDA ‖ buyer"| C["Ed25519SigVerify<br/>native program"]
+  B -->|"signs program id ‖ certificate PDA ‖ buyer"| C["Ed25519SigVerify<br/>native program"]
   C -->|"previous instruction,<br/>read from the Instructions sysvar"| D["activate_product"]
-  D -->|"owner = buyer<br/>(only once)"| E["Product PDA<br/>['product', code]"]
+  F["Batch PDA<br/>Merkle root of its units"] -->|"proof that this code and key<br/>are a unit of the batch"| D
+  D -->|"owner = buyer<br/>(only once)"| E["Certificate PDA<br/>['certificate', code]"]
 ```
 
-The secret never travels in a transaction: the program only stores the public key derived from it when the product is
-minted. Because the signed message includes the buyer's address, a copied activation cannot be replayed for someone
-else, and once the PDA has an owner a second activation is refused.
+The secret never travels in a transaction: when a batch is registered, the program stores only the Merkle root of its
+units, each leaf committing to a unit's public code and the public key derived from its secret. Because the signed
+message includes the buyer's address, a copied activation cannot be replayed for someone else, and once the certificate
+exists a second activation is refused.
 
 ### What a copied label looks like
 
@@ -61,7 +64,8 @@ seller can change it afterwards.
 
 ## The solution
 
-Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor program:
+Each unit gets **two QR codes** and a leaf in its batch's Merkle tree in the VeriFire Anchor program; when the buyer
+activates it, it gets its own account (its certificate):
 
 | QR | Where it goes | Who scans it | What it does |
 | --- | --- | --- | --- |
@@ -86,7 +90,8 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
 1. Sign up, choose the company workspace and fill in the profile (legal name, tax ID, website).
 2. Buy a batch of tokens at `/admin`, paying in USDC with **Solana Pay**: scan the QR with any Solana wallet, or pay
    from the Verifire wallet in one click.
-3. When the payment is confirmed on-chain, the server registers every product in the program (`mint_product`).
+3. When the payment is confirmed on-chain, the server registers the whole batch in the program with one transaction
+   (`register_batch`).
 4. Print the labels (public QR outside, secret QR inside) and mark the batch as shipped from the batches panel.
 5. Ask for verification from Settings → Verification. Until an administrator approves it, its products show as "registered".
 
@@ -113,8 +118,9 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
 - **The proof is checked on-chain, natively.** Solana verifies ed25519 signatures with its native `Ed25519SigVerify`
   program. VeriFire's program reads that check through the Instructions sysvar, so the secret QR's signature, the
   buyer's signature and the rule "activate only once" are enforced by the network, not by our server.
-- **One account per product.** Each unit is a PDA seeded by its public code: the code is unique by construction, the
-  record is cheap (about 0.005 SOL of rent, recoverable) and anyone can read it with a single RPC call.
+- **One account per batch, one per activated product.** A batch is a single PDA holding the Merkle root of its units,
+  so a sealed unit costs no rent. Activating one creates its certificate, a 98-byte PDA seeded by its public code (the
+  code is unique by construction) that anyone can read with a single RPC call. See [Cost per unit](#cost-per-unit).
 - **Fees are tiny and sponsored.** Verifire is the fee payer of every user transaction, so buyers and companies never hold
   SOL. Before co-signing, the server rebuilds the exact message it expects and refuses anything else.
 - **Payments and wallets are native.** Batches are paid in USDC with Solana Pay from any Solana wallet, and Privy gives
@@ -174,7 +180,7 @@ All of this is on Solana **devnet**.
 | --- | --- |
 | VeriFire program | [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet) |
 | Treasury (receives Solana Pay payments in USDC) | [`8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK`](https://explorer.solana.com/address/8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK?cluster=devnet) |
-| Fee payer and minter (pays fees, signs registrations) | The fee payer of the program's `mint_product` transactions in the explorer above |
+| Fee payer and minter (pays fees, signs registrations) | The fee payer of the program's `mint_product` and `register_batch` transactions in the explorer above |
 
 The program id is also declared in [`lib.rs`](solana/programs/verifire_product/src/lib.rs) (`declare_id!`) and in
 [`Anchor.toml`](solana/Anchor.toml).
@@ -216,17 +222,36 @@ Planned, not built yet:
 
 Design, security decisions and pending work: [`docs/solana-architecture.md`](docs/solana-architecture.md).
 
-`initialize` (upgrade authority only), `update_config`, `mint_product` (minter), `import_claimed_product` (admin),
-`activate_product`, `offer_transfer`, `cancel_transfer` and `accept_transfer`. Each product is a PDA `["product", code]`
-and the config a PDA `["config"]` with separate admin and minter keys. Activation and acceptance require an
+`initialize` (upgrade authority only), `update_config`, `register_batch` (minter), `import_claimed_product` (admin),
+`activate_product`, `offer_transfer`, `cancel_transfer` and `accept_transfer`. Each batch is a PDA `["batch", code]`
+with the Merkle root of its units, each activated product a PDA `["certificate", code]`, and the config a PDA
+`["config"]` with separate admin and minter keys. Activation also requires the Merkle proof of the unit, and activation
+and acceptance require an
 `Ed25519SigVerify` instruction right before them, checked through the Instructions sysvar; transfer links always expire
 and can only be reopened after a cooldown. Every operation emits an event. Error codes and the signed message format are
 in `solana/programs/verifire_product/src/lib.rs`.
 
+### Cost per unit
+
+Rent on Solana is `(128 + bytes) × 6,960` lamports per account, and every signature pays a 5,000-lamport fee. Verifire
+pays both.
+
+| | First version (one account per product) | Now (one account per batch) |
+| --- | --- | --- |
+| Registering a batch | 619 bytes per unit: **5,199,120 lamports (0.0052 SOL) per unit** | One account of about 130 bytes: about 0.0018 SOL **per batch** |
+| A sealed unit | Already paid at registration | **Nothing** |
+| Activating a unit | Transaction fee | A 98-byte certificate: **1,572,960 lamports (0.0016 SOL)**, plus the fee |
+| Batch of 500, 50 activated | 2.6 SOL | About 0.08 SOL |
+
+The certificate size and its rent are checked by `certificate_rent_is_the_only_cost_per_unit` in the program's tests.
+Activations and transfers stay under the 1,232-byte transaction limit with batches of up to 4,096 units (12-level
+proofs, 1,115 bytes); purchases are capped at 500 units (1,019 bytes).
+
 ### What lives on-chain and what does not
 
-- **In the Solana program:** each product's account (public code, model, batch, destination, activation key), its owner,
-  the open transfer link and its expiry, and the events of every operation. This is what a buyer or a third party can
+- **In the Solana program:** each batch's account (model, lot, destination, number of units and the Merkle root that
+  commits to every unit's public code and activation key), each activated product's certificate (its owner, the open
+  transfer link and its expiry), and the events of every operation. This is what a buyer or a third party can
   audit without trusting Verifire.
 - **In the server's JSON store:** accounts, company workspaces and profiles, batches and purchases, the verification
   decision for each company, the carousel opt-in and the secret codes of a batch until it is printed. It is a single

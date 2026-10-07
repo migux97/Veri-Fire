@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { HistoryEvent, MintedProduct, ProductStatus, PublicProduct, TransferredWarranty, Warranty } from '../types';
 import { normalizeId } from '../validation';
 import { chain } from './chain';
+import { batchTree, type BatchUnit, type UnitInBatch } from './ledger';
 import { config } from './config';
 import { destinationForCountry } from './countries';
 import { textField, type JsonBody } from './http';
@@ -53,14 +54,30 @@ export const findProduct = (token: unknown) => {
   return store.products.get(code) ?? store.products.get(store.productAliases.get(code) ?? '');
 };
 
-// Registered in the contract this server uses now, not only in one that a later deploy replaced.
-export const isCurrentOnChain = (product: Product): product is Product & { chain: NonNullable<Product['chain']> } =>
+type OnChain = Product & { chain: NonNullable<Product['chain']> & { batch: string; index: number } };
+
+// Registered in a batch of the contract this server uses now, not only in one that a later deploy replaced, nor as one
+// of the per-product accounts the program used before batches.
+export const isCurrentOnChain = (product: Product): product is OnChain =>
   Boolean(product.chain
     && Number.isInteger(product.chain.tokenId)
+    && typeof product.chain.batch === 'string'
+    && Number.isInteger(product.chain.index)
     && config.contractId
-    // A product registered before the program id was stored is taken as registered in the current one: minting it
-    // again would be refused and leave it "registrándose" forever.
+    // A product registered before the program id was stored is taken as registered in the current one: registering it
+    // again would leave it "registrándose" forever.
     && (product.chain.contractId ?? config.contractId) === config.contractId);
+
+// The product's place in its registered batch, with every unit of the batch in order: its activation proof is built
+// from them.
+export const unitInBatch = (product: OnChain): UnitInBatch => {
+  const { batch, index } = product.chain;
+  const units: BatchUnit[] = [];
+  for (const member of store.products.values()) {
+    if (isCurrentOnChain(member) && member.chain.batch === batch) units[member.chain.index] = { token: member.token, secretCode: member.secretCode ?? '' };
+  }
+  return { batchCode: batch, index, units };
+};
 
 const txUrlOf = (tx: string | undefined) => (chain.isTxId(tx) ? chain.explorerTxUrl(tx) : null);
 
@@ -253,9 +270,42 @@ export const activationKeyOf = (product: Product) => {
 export const isPendingOnChain = (product: Product) =>
   Boolean(product.secretCode) && !isCurrentOnChain(product) && !product.claimed;
 
-// Registers pending products in the program, one transaction each. A failure is logged and retried on the
-// next pass: new products, a claim attempt for an unregistered product, or a server restart.
+// Registers pending products in the program, one transaction per batch: a single account with the Merkle root of its
+// units, so a sealed product costs no rent of its own. A failure is logged and retried on the next pass: new products,
+// a claim attempt for an unregistered product, or a server restart.
 const anchoring = singleton('anchoring', () => ({ running: false, again: false }));
+
+// A batch code is used once in the program. The first try is the batch's own id (a product sold alone uses its code);
+// if that is taken by something else, a numbered one.
+const MAX_BATCH_CODE_TRIES = 20;
+
+const registerGroup = async (key: string, products: Product[]) => {
+  const units = products.map((product) => ({ token: product.token, secretCode: product.secretCode ?? '' }));
+  const root = batchTree(units).root;
+  const [{ model, lot, destination }] = products as [Product];
+  for (let attempt = 1; attempt <= MAX_BATCH_CODE_TRIES; attempt += 1) {
+    const batchCode = attempt === 1 ? key : `${key}-${attempt}`;
+    const existing = await chain.batchByCode(batchCode);
+    let registered: { firstTokenId: number; tx: string };
+    if (!existing) {
+      registered = await chain.registerBatch({ batchCode, model, lot, destination, units });
+    } else if (existing.count === units.length && existing.root.equals(Buffer.from(root))) {
+      // Registered by a run whose answer was lost. Its transaction is not known here.
+      registered = { firstTokenId: existing.firstTokenId, tx: '' };
+    } else {
+      continue;
+    }
+    const at = new Date().toISOString();
+    products.forEach((product, index) => {
+      product.chain = { tokenId: registered.firstTokenId + index, mintTx: registered.tx, contractId: chain.deploymentId, at, batch: batchCode, index };
+      // A link opened in a replaced contract does not exist in this one.
+      delete product.transfer;
+    });
+    saveState();
+    return;
+  }
+  throw new Error(`Los códigos de lote ${key} a ${key}-${MAX_BATCH_CODE_TRIES} ya están usados en el programa.`);
+};
 
 export const anchorPendingProducts = () => {
   if (!chain.enabled) return;
@@ -267,44 +317,17 @@ export const anchorPendingProducts = () => {
   void (async () => {
     do {
       anchoring.again = false;
-      for (const product of [...store.products.values()].filter(isPendingOnChain)) {
+      const groups = new Map<string, Product[]>();
+      for (const product of store.products.values()) {
+        if (!isPendingOnChain(product)) continue;
+        const key = product.batchId ?? product.token;
+        groups.set(key, [...(groups.get(key) ?? []), product]);
+      }
+      for (const [key, products] of groups) {
         try {
-          // The code may already be in the contract: this product registered by a run whose answer was lost, or
-          // another product from another server that shares the contract.
-          const existing = await chain.productByCode(product.token);
-          if (existing && !product.claimed && existing.activationKey.equals(chain.activationKeyFor(product.secretCode ?? ''))) {
-            // Its mint transaction is not known here (the one saved may belong to a replaced contract).
-            product.chain = { tokenId: existing.tokenId, mintTx: '', contractId: chain.deploymentId, at: new Date().toISOString() };
-            delete product.transfer;
-            saveState();
-            continue;
-          }
-          if (existing && product.claimed) {
-            // An activated warranty keeps the code its owner knows: this needs a person to look at it.
-            console.error(`El código ${product.token} ya existe en el contrato con otro producto y su garantía ya está activada.`);
-            continue;
-          }
-          if (existing) {
-            // Someone else's product holds the code: this one could never be registered with it. It gets a new code,
-            // so its labels have to be downloaded again (their QR carry the code).
-            const previous = product.token;
-            store.products.delete(previous);
-            product.token = newProductCode();
-            store.products.set(product.token, product);
-            // The labels already printed keep working: their code answers with this product.
-            store.productAliases.set(previous, product.token);
-            for (const [alias, target] of store.productAliases) if (target === previous) store.productAliases.set(alias, product.token);
-            saveState();
-            console.warn(`El código ${previous} ya existe en el contrato con otro producto: ahora es ${product.token}.`);
-          }
-          const toMint = { ...product, secretCode: product.secretCode ?? '' };
-          const registered = await chain.mintProduct(toMint);
-          product.chain = { ...registered, contractId: chain.deploymentId, at: new Date().toISOString() };
-          // A link opened in the replaced contract does not exist in the new one.
-          delete product.transfer;
-          saveState();
+          await registerGroup(key, products);
         } catch (error) {
-          console.error(`No se pudo registrar ${product.token} en Solana:`, error instanceof Error ? error.message : error);
+          console.error(`No se pudo registrar el lote ${key} en Solana:`, error instanceof Error ? error.message : error);
         }
       }
     } while (anchoring.again);

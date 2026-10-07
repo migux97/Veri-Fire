@@ -1,6 +1,6 @@
 // Tests del programa ejecutado de forma nativa con solana-program-test (incluye la verificación real de
-// Ed25519SigVerify y el sysvar Instructions): emisión, activación, transferencias, separación de llaves, cooldown
-// y firmas para otro producto o cuenta.
+// Ed25519SigVerify y el sysvar Instructions): registro por lote con prueba de Merkle, activación, transferencias,
+// separación de llaves, cooldown y firmas para otro producto o cuenta.
 use anchor_lang::{
     prelude::Pubkey, solana_program::bpf_loader_upgradeable, solana_program::instruction::Instruction,
     AccountDeserialize, InstructionData, ToAccountMetas,
@@ -16,9 +16,10 @@ use solana_transaction::Transaction;
 mod stubs;
 
 use verifire_product::{
-    accounts, instruction, signed_message, Config, Product, ProductArgs, ACTIVATION_DOMAIN, CONFIG_SEED, PRODUCT_SEED,
-    TRANSFER_DOMAIN, TRANSFER_LINK_SECONDS,
+    accounts, instruction, leaf_hash, node_hash, signed_message, ActivationArgs, Batch, BatchArgs, Certificate, Config,
+    ACTIVATION_DOMAIN, BATCH_SEED, CERTIFICATE_SEED, CONFIG_SEED, TRANSFER_DOMAIN, TRANSFER_LINK_SECONDS,
 };
+use std::collections::HashMap;
 
 const ID: Pubkey = verifire_product::ID;
 const START: i64 = 1_800_000_000;
@@ -38,12 +39,39 @@ fn key_for(domain: &[u8], secret: &str) -> SigningKey {
     SigningKey::from_bytes(&hasher.finalize().into())
 }
 
+fn activation_key(secret: &str) -> [u8; 32] {
+    key_for(ACTIVATION_DOMAIN, secret).verifying_key().to_bytes()
+}
+
 fn config_pda() -> Pubkey {
     Pubkey::find_program_address(&[CONFIG_SEED], &ID).0
 }
 
-fn product_pda(code: &str) -> Pubkey {
-    Pubkey::find_program_address(&[PRODUCT_SEED, code.as_bytes()], &ID).0
+fn batch_pda(code: &str) -> Pubkey {
+    Pubkey::find_program_address(&[BATCH_SEED, code.as_bytes()], &ID).0
+}
+
+fn certificate_pda(code: &str) -> Pubkey {
+    Pubkey::find_program_address(&[CERTIFICATE_SEED, code.as_bytes()], &ID).0
+}
+
+/// Árbol de Merkle del lote, igual que merkleTree en src/lib/server/solana-program.ts: pares ordenados y, en un nivel
+/// impar, el último nodo sube sin pareja. Devuelve la raíz y la prueba de cada hoja.
+fn merkle(leaves: &[[u8; 32]]) -> ([u8; 32], Vec<Vec<[u8; 32]>>) {
+    let mut proofs = vec![Vec::new(); leaves.len()];
+    let mut positions: Vec<usize> = (0..leaves.len()).collect();
+    let mut level = leaves.to_vec();
+    while level.len() > 1 {
+        for (leaf, position) in positions.iter_mut().enumerate() {
+            let sibling = *position ^ 1;
+            if sibling < level.len() {
+                proofs[leaf].push(level[sibling]);
+            }
+            *position /= 2;
+        }
+        level = level.chunks(2).map(|pair| if pair.len() == 2 { node_hash(&pair[0], &pair[1]) } else { pair[0] }).collect();
+    }
+    (level[0], proofs)
 }
 
 fn ed25519_ix(key: &SigningKey, message: &[u8]) -> Instruction {
@@ -52,10 +80,19 @@ fn ed25519_ix(key: &SigningKey, message: &[u8]) -> Instruction {
     Instruction { program_id: ix.program_id, accounts: vec![], data: ix.data }
 }
 
+/// Dónde quedó una unidad registrada: su lote, su índice y la prueba de su hoja.
+#[derive(Clone)]
+struct Unit {
+    batch: Pubkey,
+    index: u32,
+    proof: Vec<[u8; 32]>,
+}
+
 struct Env {
     ctx: ProgramTestContext,
     admin: Keypair,
     minter: Keypair,
+    units: HashMap<String, Unit>,
 }
 
 fn funded() -> Account {
@@ -81,7 +118,7 @@ async fn start() -> Env {
     test.add_account(bpf_loader_upgradeable::get_program_data_address(&ID), program_data(&admin.pubkey()));
     let ctx = test.start_with_context().await;
     stubs::bridge();
-    let mut env = Env { ctx, admin, minter };
+    let mut env = Env { ctx, admin, minter, units: HashMap::new() };
     env.set_time(START);
     env
 }
@@ -129,59 +166,82 @@ impl Env {
         env
     }
 
-    async fn mint_as(&mut self, signer: &Keypair, code: &str, secret: &str) -> Result<(), String> {
+    /// Registra un lote con las unidades (código, secreto) en ese orden.
+    async fn register_as(&mut self, signer: &Keypair, batch_code: &str, units: &[(&str, &str)]) -> Result<(), String> {
+        let leaves: Vec<[u8; 32]> =
+            units.iter().enumerate().map(|(index, (code, secret))| leaf_hash(index as u32, &activation_key(secret), code)).collect();
+        let (root, proofs) = if leaves.is_empty() { ([0; 32], vec![]) } else { merkle(&leaves) };
         let ix = Instruction {
             program_id: ID,
-            accounts: accounts::MintProduct {
+            accounts: accounts::RegisterBatch {
                 config: config_pda(),
                 minter: signer.pubkey(),
-                product: product_pda(code),
+                batch: batch_pda(batch_code),
                 payer: self.ctx.payer.pubkey(),
                 system_program: anchor_lang::system_program::ID,
             }
             .to_account_metas(None),
-            data: instruction::MintProduct { args: args(code, secret) }.data(),
+            data: instruction::RegisterBatch { args: batch_args(batch_code, root, units.len() as u32) }.data(),
         };
         let signer = signer.insecure_clone();
-        self.send(&[ix], &[&signer]).await
+        self.send(&[ix], &[&signer]).await?;
+        for (index, ((code, _), proof)) in units.iter().zip(proofs).enumerate() {
+            self.units.insert(code.to_string(), Unit { batch: batch_pda(batch_code), index: index as u32, proof });
+        }
+        Ok(())
     }
 
-    async fn mint(&mut self, code: &str, secret: &str) {
+    async fn register(&mut self, batch_code: &str, units: &[(&str, &str)]) {
         let minter = self.minter.insecure_clone();
-        self.mint_as(&minter, code, secret).await.unwrap();
+        self.register_as(&minter, batch_code, units).await.unwrap();
     }
 
-    async fn import_as(&mut self, signer: &Keypair, code: &str, secret: &str, owner: Pubkey) -> Result<(), String> {
+    /// Un lote de una unidad, como en la mayoría de los tests.
+    async fn mint(&mut self, code: &str, secret: &str) {
+        self.register(&format!("BATCH-{code}"), &[(code, secret)]).await;
+    }
+
+    async fn import_as(&mut self, signer: &Keypair, code: &str, owner: Pubkey) -> Result<(), String> {
         let ix = Instruction {
             program_id: ID,
             accounts: accounts::ImportClaimedProduct {
                 config: config_pda(),
                 admin: signer.pubkey(),
-                product: product_pda(code),
+                certificate: certificate_pda(code),
                 payer: self.ctx.payer.pubkey(),
                 system_program: anchor_lang::system_program::ID,
             }
             .to_account_metas(None),
-            data: instruction::ImportClaimedProduct { args: args(code, secret), owner }.data(),
+            data: instruction::ImportClaimedProduct { public_code: code.to_string(), owner }.data(),
         };
         let signer = signer.insecure_clone();
         self.send(&[ix], &[&signer]).await
     }
 
-    /// Activa firmando con `key` el mensaje de `signed_for` (normalmente el mismo claimant).
-    async fn activate_with(&mut self, code: &str, key: &SigningKey, claimant: &Keypair, signed_for: &Pubkey, with_signature: bool) -> Result<(), String> {
-        let product = product_pda(code);
-        let activate = Instruction {
+    fn activate_ix(&self, code: &str, unit: &Unit, secret_key: [u8; 32], claimant: &Pubkey) -> Instruction {
+        Instruction {
             program_id: ID,
             accounts: accounts::ActivateProduct {
-                product,
-                claimant: claimant.pubkey(),
+                batch: unit.batch,
+                certificate: certificate_pda(code),
+                claimant: *claimant,
+                payer: self.ctx.payer.pubkey(),
                 instructions: solana_sdk_ids_instructions(),
+                system_program: anchor_lang::system_program::ID,
             }
             .to_account_metas(None),
-            data: instruction::ActivateProduct {}.data(),
-        };
-        let message = signed_message(ACTIVATION_DOMAIN, &product, signed_for);
+            data: instruction::ActivateProduct {
+                args: ActivationArgs { public_code: code.to_string(), index: unit.index, activation_key: secret_key, proof: unit.proof.clone() },
+            }
+            .data(),
+        }
+    }
+
+    /// Activa firmando con `key` el mensaje de `signed_for` (normalmente el mismo claimant).
+    async fn activate_with(&mut self, code: &str, key: &SigningKey, claimant: &Keypair, signed_for: &Pubkey, with_signature: bool) -> Result<(), String> {
+        let unit = self.units[code].clone();
+        let activate = self.activate_ix(code, &unit, key.verifying_key().to_bytes(), &claimant.pubkey());
+        let message = signed_message(ACTIVATION_DOMAIN, &certificate_pda(code), signed_for);
         let ixs = if with_signature { vec![ed25519_ix(key, &message), activate] } else { vec![activate] };
         self.send(&ixs, &[claimant]).await
     }
@@ -195,7 +255,7 @@ impl Env {
         let key = key_for(TRANSFER_DOMAIN, link_secret);
         let ix = Instruction {
             program_id: ID,
-            accounts: accounts::OwnerAction { config: config_pda(), product: product_pda(code), owner: owner.pubkey() }.to_account_metas(None),
+            accounts: accounts::OwnerAction { config: config_pda(), certificate: certificate_pda(code), owner: owner.pubkey() }.to_account_metas(None),
             data: instruction::OfferTransfer { transfer_key: key.verifying_key().to_bytes() }.data(),
         };
         self.send(&[ix], &[owner]).await
@@ -204,21 +264,21 @@ impl Env {
     async fn cancel(&mut self, code: &str, owner: &Keypair) -> Result<(), String> {
         let ix = Instruction {
             program_id: ID,
-            accounts: accounts::OwnerAction { config: config_pda(), product: product_pda(code), owner: owner.pubkey() }.to_account_metas(None),
+            accounts: accounts::OwnerAction { config: config_pda(), certificate: certificate_pda(code), owner: owner.pubkey() }.to_account_metas(None),
             data: instruction::CancelTransfer {}.data(),
         };
         self.send(&[ix], &[owner]).await
     }
 
     async fn accept_with(&mut self, code: &str, key: &SigningKey, recipient: &Keypair, signed_for: &Pubkey) -> Result<(), String> {
-        let product = product_pda(code);
+        let certificate = certificate_pda(code);
         let accept = Instruction {
             program_id: ID,
-            accounts: accounts::AcceptTransfer { product, recipient: recipient.pubkey(), instructions: solana_sdk_ids_instructions() }
+            accounts: accounts::AcceptTransfer { certificate, recipient: recipient.pubkey(), instructions: solana_sdk_ids_instructions() }
                 .to_account_metas(None),
             data: instruction::AcceptTransfer {}.data(),
         };
-        let message = signed_message(TRANSFER_DOMAIN, &product, signed_for);
+        let message = signed_message(TRANSFER_DOMAIN, &certificate, signed_for);
         self.send(&[ed25519_ix(key, &message), accept], &[recipient]).await
     }
 
@@ -227,9 +287,18 @@ impl Env {
         self.accept_with(code, &key, recipient, &recipient.pubkey()).await
     }
 
-    async fn product(&mut self, code: &str) -> Product {
-        let account = self.ctx.banks_client.get_account(product_pda(code)).await.unwrap().expect("product account");
-        Product::try_deserialize(&mut account.data.as_slice()).unwrap()
+    async fn certificate_account(&mut self, code: &str) -> Option<Account> {
+        self.ctx.banks_client.get_account(certificate_pda(code)).await.unwrap()
+    }
+
+    async fn certificate(&mut self, code: &str) -> Certificate {
+        let account = self.certificate_account(code).await.expect("certificate account");
+        Certificate::try_deserialize(&mut account.data.as_slice()).unwrap()
+    }
+
+    async fn batch(&mut self, batch_code: &str) -> Batch {
+        let account = self.ctx.banks_client.get_account(batch_pda(batch_code)).await.unwrap().expect("batch account");
+        Batch::try_deserialize(&mut account.data.as_slice()).unwrap()
     }
 
     async fn config(&mut self) -> Config {
@@ -242,13 +311,14 @@ fn solana_sdk_ids_instructions() -> Pubkey {
     Pubkey::from_str_const("Sysvar1nstructions1111111111111111111111111")
 }
 
-fn args(code: &str, secret: &str) -> ProductArgs {
-    ProductArgs {
-        public_code: code.to_string(),
+fn batch_args(batch_code: &str, root: [u8; 32], count: u32) -> BatchArgs {
+    BatchArgs {
+        batch_code: batch_code.to_string(),
+        root,
+        count,
         model: "Taladro Percutor 750W".to_string(),
         lot: "L-2026-09".to_string(),
         destination: "Argentina".to_string(),
-        activation_key: key_for(ACTIVATION_DOMAIN, secret).verifying_key().to_bytes(),
     }
 }
 
@@ -258,6 +328,7 @@ fn assert_err(result: Result<(), String>, code: &str) {
     let index = [
         "NotUpgradeAuthority", "NotAdmin", "NotMinter", "InvalidCode", "InvalidField", "InvalidCooldown", "Overflow",
         "AlreadyClaimed", "NotOwner", "NoOpenTransfer", "AlreadyOwner", "TransferExpired", "OfferTooSoon", "InvalidSignature",
+        "InvalidProof", "InvalidBatch",
     ]
     .iter()
     .position(|name| *name == code)
@@ -296,31 +367,85 @@ async fn only_the_upgrade_authority_initializes() {
 }
 
 #[tokio::test]
-async fn mint_and_claim() {
+async fn register_batch_and_claim() {
     let mut env = Env::ready(0).await;
-    env.mint(CODE, SECRET).await;
-    let product = env.product(CODE).await;
-    assert_eq!(product.token_id, 1);
-    assert_eq!(product.public_code, CODE);
-    assert!(product.owner.is_none());
+    let units = [("VF-UNIT0001", "VF-SECRET-A"), ("VF-UNIT0002", "VF-SECRET-B"), ("VF-UNIT0003", "VF-SECRET-C")];
+    env.register("BATCH-ONE", &units).await;
+    let batch = env.batch("BATCH-ONE").await;
+    assert_eq!((batch.first_token_id, batch.count, batch.model.as_str()), (1, 3, "Taladro Percutor 750W"));
+    assert_eq!(env.config().await.next_token_id, 4);
+    // Selladas no ocupan cuenta: nada que pague rent por unidad.
+    assert!(env.certificate_account("VF-UNIT0002").await.is_none());
     let buyer = env.new_user().await;
-    env.activate(CODE, SECRET, &buyer).await.unwrap();
-    assert_eq!(env.product(CODE).await.owner, Some(buyer.pubkey()));
+    env.activate("VF-UNIT0002", "VF-SECRET-B", &buyer).await.unwrap();
+    let certificate = env.certificate("VF-UNIT0002").await;
+    assert_eq!((certificate.token_id, certificate.owner), (2, buyer.pubkey()));
+    // Las demás unidades del lote se activan con sus propias pruebas.
+    env.activate("VF-UNIT0003", "VF-SECRET-C", &buyer).await.unwrap();
+    env.activate("VF-UNIT0001", "VF-SECRET-A", &buyer).await.unwrap();
     env.mint("VF-SECOND01", "VF-SECRET-OTHER").await;
-    assert_eq!(env.product("VF-SECOND01").await.token_id, 2);
+    assert_eq!(env.batch("BATCH-VF-SECOND01").await.first_token_id, 4);
 }
 
 #[tokio::test]
-async fn only_the_minter_mints_and_codes_are_unique() {
+async fn certificate_rent_is_the_only_cost_per_unit() {
+    let mut env = Env::ready(0).await;
+    env.mint(CODE, SECRET).await;
+    let buyer = env.new_user().await;
+    env.activate(CODE, SECRET, &buyer).await.unwrap();
+    let account = env.certificate_account(CODE).await.unwrap();
+    // 98 bytes: (128 + 98) * 6960 = 1_572_960 lamports, contra 619 bytes y 5_199_120 de la cuenta por producto anterior.
+    assert_eq!(account.data.len(), 98);
+    assert_eq!(account.lamports, 1_572_960);
+}
+
+#[tokio::test]
+async fn only_the_minter_registers_and_batch_codes_are_unique() {
     let mut env = Env::ready(0).await;
     let intruder = Keypair::new();
-    assert_err(env.mint_as(&intruder, CODE, SECRET).await, "NotMinter");
+    assert_err(env.register_as(&intruder, "BATCH-A", &[(CODE, SECRET)]).await, "NotMinter");
     // El admin tampoco emite: son llaves separadas.
     let admin = env.admin.insecure_clone();
-    assert_err(env.mint_as(&admin, CODE, SECRET).await, "NotMinter");
-    env.mint(CODE, SECRET).await;
+    assert_err(env.register_as(&admin, "BATCH-A", &[(CODE, SECRET)]).await, "NotMinter");
+    env.register("BATCH-A", &[(CODE, SECRET)]).await;
     let minter = env.minter.insecure_clone();
-    assert!(env.mint_as(&minter, CODE, "VF-SECRET-OTHER").await.is_err(), "el código ya existe");
+    assert!(env.register_as(&minter, "BATCH-A", &[("VF-OTHER001", SECRET)]).await.is_err(), "el lote ya existe");
+}
+
+#[tokio::test]
+async fn invalid_batches_are_rejected() {
+    let mut env = Env::ready(0).await;
+    let minter = env.minter.insecure_clone();
+    assert_err(env.register_as(&minter, "", &[(CODE, SECRET)]).await, "InvalidCode");
+    assert_err(env.register_as(&minter, "BATCH-EMPTY", &[]).await, "InvalidBatch");
+}
+
+#[tokio::test]
+async fn units_outside_the_batch_are_rejected() {
+    let mut env = Env::ready(0).await;
+    env.register("BATCH-A", &[(CODE, SECRET), ("VF-UNIT0002", "VF-SECRET-B")]).await;
+    env.mint("VF-OTHER001", "VF-SECRET-OTHER").await;
+    let buyer = env.new_user().await;
+    let key = key_for(ACTIVATION_DOMAIN, SECRET);
+    let message = signed_message(ACTIVATION_DOMAIN, &certificate_pda(CODE), &buyer.pubkey());
+    let unit = env.units[CODE].clone();
+    // Otro índice: la hoja cambia.
+    let moved = Unit { index: 1, ..unit.clone() };
+    let ix = env.activate_ix(CODE, &moved, key.verifying_key().to_bytes(), &buyer.pubkey());
+    assert_err(env.send(&[ed25519_ix(&key, &message), ix], &[&buyer]).await, "InvalidProof");
+    // Índice fuera del lote.
+    let outside = Unit { index: 2, ..unit.clone() };
+    let ix = env.activate_ix(CODE, &outside, key.verifying_key().to_bytes(), &buyer.pubkey());
+    assert_err(env.send(&[ed25519_ix(&key, &message), ix], &[&buyer]).await, "InvalidProof");
+    // La prueba de un lote contra la raíz de otro.
+    let elsewhere = Unit { batch: env.units["VF-OTHER001"].batch, ..unit.clone() };
+    let ix = env.activate_ix(CODE, &elsewhere, key.verifying_key().to_bytes(), &buyer.pubkey());
+    assert_err(env.send(&[ed25519_ix(&key, &message), ix], &[&buyer]).await, "InvalidProof");
+    // Un código que no está en el lote, con la prueba de otra unidad.
+    let message = signed_message(ACTIVATION_DOMAIN, &certificate_pda("VF-FAKE0001"), &buyer.pubkey());
+    let ix = env.activate_ix("VF-FAKE0001", &unit, key.verifying_key().to_bytes(), &buyer.pubkey());
+    assert_err(env.send(&[ed25519_ix(&key, &message), ix], &[&buyer]).await, "InvalidProof");
+    env.activate(CODE, SECRET, &buyer).await.unwrap();
 }
 
 #[tokio::test]
@@ -338,7 +463,14 @@ async fn wrong_secret_is_rejected() {
     let mut env = Env::ready(0).await;
     env.mint(CODE, SECRET).await;
     let buyer = env.new_user().await;
-    assert_err(env.activate(CODE, "VF-SECRET-WRONG", &buyer).await, "InvalidSignature");
+    // Su clave no es la de ninguna hoja del lote.
+    assert_err(env.activate(CODE, "VF-SECRET-WRONG", &buyer).await, "InvalidProof");
+    // La clave correcta, pero la firma de otra.
+    let unit = env.units[CODE].clone();
+    let wrong = key_for(ACTIVATION_DOMAIN, "VF-SECRET-WRONG");
+    let message = signed_message(ACTIVATION_DOMAIN, &certificate_pda(CODE), &buyer.pubkey());
+    let ix = env.activate_ix(CODE, &unit, activation_key(SECRET), &buyer.pubkey());
+    assert_err(env.send(&[ed25519_ix(&wrong, &message), ix], &[&buyer]).await, "InvalidSignature");
 }
 
 #[tokio::test]
@@ -365,18 +497,12 @@ async fn front_runner_cannot_reuse_signature() {
 #[tokio::test]
 async fn signature_for_another_product_is_rejected() {
     let mut env = Env::ready(0).await;
-    env.mint(CODE, SECRET).await;
-    env.mint("VF-OTHER001", SECRET).await;
+    env.register("BATCH-A", &[(CODE, SECRET), ("VF-OTHER001", SECRET)]).await;
     let buyer = env.new_user().await;
     let key = key_for(ACTIVATION_DOMAIN, SECRET);
-    let product = product_pda("VF-OTHER001");
-    let message = signed_message(ACTIVATION_DOMAIN, &product, &buyer.pubkey());
-    let activate = Instruction {
-        program_id: ID,
-        accounts: accounts::ActivateProduct { product: product_pda(CODE), claimant: buyer.pubkey(), instructions: solana_sdk_ids_instructions() }
-            .to_account_metas(None),
-        data: instruction::ActivateProduct {}.data(),
-    };
+    let message = signed_message(ACTIVATION_DOMAIN, &certificate_pda("VF-OTHER001"), &buyer.pubkey());
+    let unit = env.units[CODE].clone();
+    let activate = env.activate_ix(CODE, &unit, activation_key(SECRET), &buyer.pubkey());
     assert_err(env.send(&[ed25519_ix(&key, &message), activate], &[&buyer]).await, "InvalidSignature");
 }
 
@@ -388,11 +514,11 @@ async fn transfer_with_link_secret() {
     let recipient = env.new_user().await;
     env.activate(CODE, SECRET, &owner).await.unwrap();
     env.offer(CODE, &owner, "link-1").await.unwrap();
-    let offered = env.product(CODE).await;
+    let offered = env.certificate(CODE).await;
     assert_eq!(offered.transfer_expires_at, START + TRANSFER_LINK_SECONDS);
     env.accept(CODE, "link-1", &recipient).await.unwrap();
-    let product = env.product(CODE).await;
-    assert_eq!(product.owner, Some(recipient.pubkey()));
+    let product = env.certificate(CODE).await;
+    assert_eq!(product.owner, recipient.pubkey());
     assert!(product.transfer_key.is_none());
     // Un solo uso.
     let third = env.new_user().await;
@@ -404,7 +530,8 @@ async fn only_owner_offers_and_sealed_cannot_be_offered() {
     let mut env = Env::ready(0).await;
     env.mint(CODE, SECRET).await;
     let someone = env.new_user().await;
-    assert_err(env.offer(CODE, &someone, "link").await, "NotOwner");
+    // Sellado: todavía no tiene certificado.
+    assert!(env.offer(CODE, &someone, "link").await.is_err());
     env.activate(CODE, SECRET, &someone).await.unwrap();
     let other = env.new_user().await;
     assert_err(env.offer(CODE, &other, "link").await, "NotOwner");
@@ -466,13 +593,14 @@ async fn owner_cannot_accept_own_link() {
 #[tokio::test]
 async fn import_keeps_owner_and_is_admin_only() {
     let mut env = Env::ready(0).await;
+    env.mint(CODE, SECRET).await;
     let owner = Keypair::new();
     let minter = env.minter.insecure_clone();
-    assert_err(env.import_as(&minter, CODE, SECRET, owner.pubkey()).await, "NotAdmin");
+    assert_err(env.import_as(&minter, CODE, owner.pubkey()).await, "NotAdmin");
     let admin = env.admin.insecure_clone();
-    env.import_as(&admin, CODE, SECRET, owner.pubkey()).await.unwrap();
-    let product = env.product(CODE).await;
-    assert_eq!(product.owner, Some(owner.pubkey()));
+    env.import_as(&admin, CODE, owner.pubkey()).await.unwrap();
+    let certificate = env.certificate(CODE).await;
+    assert_eq!(certificate.owner, owner.pubkey());
     let buyer = env.new_user().await;
     assert_err(env.activate(CODE, SECRET, &buyer).await, "AlreadyClaimed");
     // El dueño importado puede transferir.
@@ -535,11 +663,5 @@ async fn admin_updates_config() {
     assert_eq!(config.minter, new_minter.pubkey());
     assert_eq!(config.offer_cooldown_seconds, 30);
     // La cuenta emisora anterior ya no puede emitir.
-    assert_err(env.mint_as(&env.minter.insecure_clone(), CODE, SECRET).await, "NotMinter");
-}
-
-#[tokio::test]
-async fn empty_code_is_rejected() {
-    let mut env = Env::ready(0).await;
-    assert_err(env.mint_as(&env.minter.insecure_clone(), "", SECRET).await, "InvalidCode");
+    assert_err(env.register_as(&env.minter.insecure_clone(), "BATCH-A", &[(CODE, SECRET)]).await, "NotMinter");
 }
