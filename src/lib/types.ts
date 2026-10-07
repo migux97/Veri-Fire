@@ -1,4 +1,5 @@
 import type { IssuanceOptions } from './issuance';
+import type { CopySignal } from './scan-signals';
 // Shapes of the JSON the API answers with. Shared by the server that builds them and the pages that read them.
 
 export type ProductStatus = 'SEALED' | 'CLAIMED_IN_WARRANTY';
@@ -73,6 +74,10 @@ export interface PublicProduct {
   network: string;
   blockchainBacked: boolean;
   history: HistoryEvent[];
+  // How many people have owned it: 0 while sealed, then the buyer plus one per transfer.
+  owners: number;
+  // The latest sign that its labels were copied (a second activation attempt, checks from distant places), if any.
+  copySignal: CopySignal | null;
   // The last change of owner, when the product was passed on after its activation.
   lastTransfer: { to: string; at: string } | null;
   // The company's published brand, when it published one. Nothing private: only what it chose to show to everyone.

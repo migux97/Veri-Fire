@@ -29,7 +29,8 @@ export function ProductDetails({ product, locale = 'es' }: ProductDetailsProps) 
         ...(product.claimed && product.claimedAt && product.warrantyUntil
           ? [
             [rows.claimedAt, <LocalDate iso={product.claimedAt} locale={locale} />],
-            [rows.coverage, <LocalDate iso={product.warrantyUntil} locale={locale} />]
+            [rows.coverage, <LocalDate iso={product.warrantyUntil} locale={locale} />],
+            [rows.owners, product.owners]
           ] satisfies [string, ReactNode][]
           : [])
       ]}

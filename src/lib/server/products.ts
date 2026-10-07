@@ -12,6 +12,7 @@ import { hashSecret, saveState, store, type Product, type ProductFields, type St
 import { issuerOf, publishedIssuerOf } from './brands';
 import { photoOfBatch } from './photos';
 import { showcaseBlockOf } from './showcase-rules';
+import { copySignalOf, ownersCount } from '../scan-signals';
 import { DEFAULT_WARRANTY_MONTHS, supportOf } from './support';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -109,14 +110,16 @@ const recordEventQuietly = (product: Product, event: StoredEvent) => {
   }
 };
 
-// Each public check of the product, at most one every VERIFIED_EVERY_MS so reloading the page adds nothing.
-export const recordVerification = (product: Product) => {
+// Each public check of the product, at most one every VERIFIED_EVERY_MS so reloading the page adds nothing. A check
+// from another country is always recorded: it is what tells a copied public QR apart (see scan-signals.ts).
+export const recordVerification = (product: Product, country: string | null = null) => {
   const events = product.events ?? [];
   const last = events.findLast((event) => event.kind === 'verified');
-  if (last && Date.now() - new Date(last.at).getTime() < VERIFIED_EVERY_MS) return;
+  const sameCountry = !country || !last?.country || last.country === country;
+  if (last && sameCountry && Date.now() - new Date(last.at).getTime() < VERIFIED_EVERY_MS) return;
   const verified = events.filter((event) => event.kind === 'verified');
   if (verified.length >= MAX_VERIFIED_EVENTS) product.events = events.filter((event) => event !== verified[0]);
-  recordEventQuietly(product, { kind: 'verified', at: new Date().toISOString() });
+  recordEventQuietly(product, { kind: 'verified', at: new Date().toISOString(), ...(country ? { country } : {}) });
 };
 
 // Someone with the secret QR tried to activate a product that already has an owner: a sign of a copied label.
@@ -143,6 +146,8 @@ export const publicProductView = (product: Product): PublicProduct => ({
   // True only for products registered in the contract, not merely because a contract is configured.
   blockchainBacked: isCurrentOnChain(product),
   history: historyOf(product),
+  owners: ownersCount(product.claimed, product.events ?? []),
+  copySignal: copySignalOf(product.events ?? []),
   lastTransfer: (() => {
     const last = transfersOf(product).at(-1);
     return last ? { to: shortAddress(last.to), at: last.at } : null;

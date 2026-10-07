@@ -12,6 +12,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { pageLocale } from '@/lib/server/page-locale';
 import { findProduct, publicProductView, recordVerification } from '@/lib/server/products';
 import { withinBudget } from '@/lib/server/rate-limit';
+import { scanCountry } from '@/lib/scan-signals';
 
 const locale = pageLocale(Astro);
 const copy = getVerifyMessages(locale);
@@ -20,7 +21,8 @@ const requestedToken = Astro.url.searchParams.get('token') ?? '';
 const found = requestedToken.trim() ? findProduct(requestedToken) : undefined;
 // Every check with the public QR goes into the product's history (see recordVerification). Recording writes the
 // store, so an address that walks through the (sequential) tokens only gets a few recorded; the page still answers.
-if (found && withinBudget('verify-record', Astro.clientAddress, 30)) recordVerification(found);
+// The country comes from Cloudflare, in front of the public server; without it the check is recorded without one.
+if (found && withinBudget('verify-record', Astro.clientAddress, 30)) recordVerification(found, scanCountry(Astro.request.headers.get('cf-ipcountry')));
 const product = found ? publicProductView(found) : null;
 
 // Only a verified issuer lets the page say "original": for anyone else the record proves the code is unique, not the product.
@@ -36,7 +38,19 @@ if (product) {
   if (product.lastTransfer) message = copy.product.transferred.replace('{to}', product.lastTransfer.to);
   else if (product.claimed) message = copy.product.claimed;
   else message = copy.product.sealed;
-} else if (requestedToken.trim()) {
+}
+
+// A sign that the labels were copied, in words: countries by name in the page's language.
+let copyWarning: string | null = null;
+if (product?.copySignal) {
+  const regions = new Intl.DisplayNames([locale], { type: 'region' });
+  copyWarning = product.copySignal.kind === 'rejected-claim'
+    ? copy.product.copy.rejected
+    : copy.product.copy.distantScans
+      .replace('{first}', regions.of(product.copySignal.countries[0]) ?? product.copySignal.countries[0])
+      .replace('{second}', regions.of(product.copySignal.countries[1]) ?? product.copySignal.countries[1]);
+}
+if (!product && requestedToken.trim()) {
   title = copy.product.notFoundTitle;
   message = copy.product.notFound;
   Astro.response.status = 404;
@@ -64,6 +78,13 @@ if (product) {
           {' '}
           {copy.product.trust[trust]}
           {trust === 'verified' && product?.issuer?.domain && ` ${copy.product.trust.verifiedSite.replace('{domain}', product.issuer.domain)}`}
+        </p>
+      )}
+      {copyWarning && (
+        <p class="verify-trust is-copy" role="alert">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          {' '}
+          {copyWarning}
         </p>
       )}
       {product?.photoUrl && <img class="verify-photo" src={product.photoUrl} alt={copy.photoAlt.replace('{model}', product.model)} loading="lazy" decoding="async" />}

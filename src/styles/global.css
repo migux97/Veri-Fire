@@ -2731,6 +2731,14 @@ a.network-status:hover {
   color: var(--vf-success);
 }
 
+.verify-trust.is-copy {
+  border-left-color: var(--vf-error);
+}
+
+.verify-trust.is-copy i {
+  color: var(--vf-error);
+}
+
 /* ---------- /verificacion: the review of companies ---------- */
 .vadmin-shell {
   width: min(1100px, 100%);

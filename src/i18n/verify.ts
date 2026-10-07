@@ -32,7 +32,11 @@ const es = {
     notFoundTitle: 'No se pudo verificar',
     notFound: 'El token de producto no existe.',
     history: 'Historial del producto',
-    rows: { product: 'Producto', model: 'Modelo', lot: 'Lote', destination: 'Destino', status: 'Estado', claimedAt: 'Garantía activada el', coverage: 'Cobertura hasta' },
+    rows: { product: 'Producto', model: 'Modelo', lot: 'Lote', destination: 'Destino', status: 'Estado', claimedAt: 'Garantía activada el', coverage: 'Cobertura hasta', owners: 'Dueños hasta hoy' },
+    copy: {
+      rejected: 'Alguien intentó activar este producto con su QR secreto cuando ya tenía dueño: la etiqueta pudo haber sido copiada. Si te lo ofrecen como nuevo, desconfiá.',
+      distantScans: 'Este QR se verificó desde {first} y desde {second} en menos de 48 horas: puede haber copias de esta etiqueta. Confirmá con la empresa antes de comprar.'
+    },
     status: { sealed: 'Sellado en fábrica', claimed: 'Garantía activa' }
   },
   scan: {
@@ -86,7 +90,11 @@ const en: Messages = {
     notFoundTitle: 'Could not be verified',
     notFound: 'That product token does not exist.',
     history: 'Product history',
-    rows: { product: 'Product', model: 'Model', lot: 'Batch', destination: 'Destination', status: 'Status', claimedAt: 'Warranty activated on', coverage: 'Covered until' },
+    rows: { product: 'Product', model: 'Model', lot: 'Batch', destination: 'Destination', status: 'Status', claimedAt: 'Warranty activated on', coverage: 'Covered until', owners: 'Owners so far' },
+    copy: {
+      rejected: 'Someone tried to activate this product with its secret QR after it already had an owner: the label may have been copied. If it is offered to you as new, be careful.',
+      distantScans: 'This QR was checked from {first} and from {second} within 48 hours: this label may have been copied. Confirm with the company before buying.'
+    },
     status: { sealed: 'Sealed at the factory', claimed: 'Warranty active' }
   },
   scan: {

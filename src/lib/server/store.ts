@@ -24,6 +24,8 @@ export interface StoredEvent {
   from?: string;
   to?: string;
   by?: string;
+  // Public checks: the visitor's country (ISO 3166-1 alpha-2), never the address, to tell a copied QR apart.
+  country?: string;
 }
 
 // Who the buyer contacts for support and how long a warranty lasts, set by the company (see support.ts).
