@@ -2,7 +2,7 @@
 // panels can read warranties before Privy finishes loading.
 import { isWalletAddress } from '../validation';
 import { storedUser } from './account';
-import { privyBridge } from './privy-registry';
+import { privyWalletAddress } from './privy-registry';
 import { userSession, WALLET_KEY, WALLET_UPDATED_EVENT } from './session';
 import { readStored, writeStored } from './storage';
 
@@ -22,7 +22,7 @@ export const resolveWalletAddress = async () => {
     rememberWallet(account.walletAddress);
     return account.walletAddress;
   }
-  const address = (await privyBridge()).address();
+  const address = await privyWalletAddress();
   if (!address) throw new Error('No encontramos tu wallet en este navegador. Cerrá sesión y volvé a entrar.');
   rememberWallet(address);
   return address;

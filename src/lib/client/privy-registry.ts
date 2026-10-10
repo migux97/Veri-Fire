@@ -30,6 +30,24 @@ export const registerPrivyBridge = (api: PrivyBridgeApi | null) => {
 // The bridge if Privy already loaded on this page, without waiting for it.
 export const currentPrivyBridge = () => bridge;
 
+// Privy says it is ready before the user's wallet has loaded, so a page that signs as soon as it opens (the company
+// panel syncs on load) would find no wallet and take it for a different one. This waits for the wallet a few seconds;
+// null after that means Privy really has no session in this browser.
+const WALLET_WAIT_MS = 10_000;
+const WALLET_POLL_MS = 150;
+
+export const privyWalletAddress = async (): Promise<string | null> => {
+  await privyBridge();
+  const deadline = Date.now() + WALLET_WAIT_MS;
+  // The bridge is registered again when Privy's hooks change, so it is read fresh on every look.
+  let address = bridge?.address() ?? null;
+  while (!address && Date.now() < deadline) {
+    await new Promise((resolve) => window.setTimeout(resolve, WALLET_POLL_MS));
+    address = bridge?.address() ?? null;
+  }
+  return address;
+};
+
 // The bridge once Privy loaded. It fails when the page has no bridge (PRIVY_APP_ID missing) or Privy never answered.
 export const privyBridge = (): Promise<PrivyBridgeApi> => {
   if (bridge) return Promise.resolve(bridge);

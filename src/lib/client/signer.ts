@@ -1,7 +1,7 @@
 // The user's Privy wallet as the flows that sign see it. Transactions travel as the base64 wire transactions the server
 // answers and come back signed the same way; the server adds its signature as fee payer.
 import { base64ToBytes, bytesToBase64 } from './bytes';
-import { privyBridge } from './privy-registry';
+import { privyBridge, privyWalletAddress } from './privy-registry';
 
 export type Progress = (message: string) => void;
 
@@ -14,8 +14,8 @@ export interface Signer {
 
 export const connectSigner = async (expectedAddress: string, onProgress?: Progress): Promise<Signer> => {
   onProgress?.('Conectando tu wallet...');
+  const address = await privyWalletAddress();
   const privy = await privyBridge();
-  const address = privy.address();
   if (address !== expectedAddress) {
     throw new Error('La wallet de esta sesión no coincide con la de tu cuenta. Cerrá sesión y volvé a entrar.');
   }
