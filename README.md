@@ -10,6 +10,9 @@ ownership live on-chain and follow the product when it is resold.
 
 ## For evaluators
 
+- **Try it in 2 minutes, nothing to install:** [`docs/demo-qrs/`](docs/demo-qrs/) has five sealed products for the
+  jury. One click verifies a product, another activates its warranty on Solana in your name after signing in with any
+  email. Or just open [a product's public page](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K).
 - **Program on Solana devnet:** [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet).
   Its transaction history shows the deploy, `initialize`, three `mint_product`, two `activate_product` (each one next
   to its `Ed25519SigVerify` instruction) and one `offer_transfer`.
@@ -160,8 +163,8 @@ so. Set the program and the server's keypair to make them real.
 1. Open a public verification page: `https://verifire-solana.cosmosapp.lat/verify?token=<public code>`, with the code printed on any public QR.
 2. Sign up at `/login?modo=registro`, choose the company workspace and follow the company steps above.
 3. To see the carousel on the home page, a Verifire administrator has to approve the company that issued the products.
-4. **Or activate a real one yourself:** [`docs/demo-qrs/`](docs/demo-qrs/) has six sealed, unclaimed demo products,
-   each with its public and secret QR ready to use, and instructions for both.
+4. **Or activate a real one yourself:** [`docs/demo-qrs/`](docs/demo-qrs/) has five sealed, unclaimed demo products
+   for the jury, each with one-click links and its public and secret QR, and instructions for both.
 
 **Videos:** [full demo walkthrough](PITCH/video-demo.md) and [an external user activating a product with no help from
 the team](PITCH/video-external-user.md).

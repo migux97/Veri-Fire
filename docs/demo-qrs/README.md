@@ -1,30 +1,53 @@
-# Demo QR codes for the jury
+# Demo products for the jury
 
-Six sealed, unclaimed demo products from a verified VeriFire batch (`BATCH-2AE2B16669`, "VF-2026-D874B52B"),
-issued so anyone can try the full flow without installing anything.
+Six real, sealed products registered on **Solana devnet** by a company that Verifire verified. Use them to try the whole
+flow on **https://verifire-solana.cosmosapp.lat** without installing anything and without a crypto wallet.
 
-Each product has **two files**: its public QR (`-qr-publico.svg`) and its secret QR (`-qr-secreto.svg`).
+Batch `BATCH-300B38B803` · model **Ryzen 7700G** · lot `VF-2026-F185D883` · destination Argentina · LATAM.
 
-| Token | Public QR | Secret QR |
+## Try it in 2 minutes (no scanning needed)
+
+Pick **one row** in the table. Each product can be activated **only once**, so if a row was already used, take the next one.
+
+1. **Check the product (no account).** Click **Verify**. The page shows "Original product", the company that issued it,
+   and the state **Sealed**.
+2. **Activate the warranty.** Click **Activate** and sign in with any email (you get a one-time code). Your Solana wallet
+   is created for you and Verifire pays the network fee. The warranty is registered on Solana in your name, with a link
+   to the transaction on Solana Explorer.
+3. **See the change.** Click **Verify** again: the product now shows as **Activated**, with its activation date and one
+   owner.
+4. **Try to cheat.** Click the same **Activate** link again, from another account or browser. The program refuses it,
+   and the public page warns that the label may have been copied.
+
+| Product | Verify (public QR) | Activate (secret QR) |
 | --- | --- | --- |
-| VF-36SYSDVR | `VF-36SYSDVR-qr-publico.svg` | `VF-36SYSDVR-qr-secreto.svg` |
-| VF-4WEHX2YC | `VF-4WEHX2YC-qr-publico.svg` | `VF-4WEHX2YC-qr-secreto.svg` |
-| VF-5JK6D9XM | `VF-5JK6D9XM-qr-publico.svg` | `VF-5JK6D9XM-qr-secreto.svg` |
-| VF-96YE4N48 | `VF-96YE4N48-qr-publico.svg` | `VF-96YE4N48-qr-secreto.svg` |
-| VF-PDCHX5ZP | `VF-PDCHX5ZP-qr-publico.svg` | `VF-PDCHX5ZP-qr-secreto.svg` |
-| VF-D5MB996H | `VF-D5MB996H-qr-publico.svg` | `VF-D5MB996H-qr-secreto.svg` |
+| `VF-7PRY5U2K` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=C8UGRD5fcN7Okw) |
+| `VF-CHSKNVCB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-CHSKNVCB) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=LDis_EyieJ84PA) |
+| `VF-NNBWZKFB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-NNBWZKFB) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=tuwqHMz4qBIRYg) |
+| `VF-H9NQTE55` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-H9NQTE55) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=TcTKepY-m-SPlA) |
+| `VF-3AKFFBMC` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-3AKFFBMC) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=Ugu9BUOQzuLk7A) |
+| `VF-F9B3YRVD` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-F9B3YRVD) | Reserved for the team's demo recording |
 
-## How to try it
+## Prefer the real experience? Scan the QR codes
 
-1. **Anyone, no account:** open the public QR (or `https://verifire-solana.cosmosapp.lat/verify?token=<TOKEN>` with any
-   token above) to see the product and its issuer, marked "Producto original" because VeriFire verified this company.
-2. **To activate one:** go to `https://verifire-solana.cosmosapp.lat/app`, sign in with your own email, and upload or
-   paste the matching secret QR image. The warranty gets registered on Solana in your name, and Verifire pays the fee.
-3. Scan the same product's public QR again afterwards: it now shows as activated.
+In a shop, the **public QR** is printed outside the box and the **secret QR** is hidden under a seal inside it. Open these
+images on your computer and scan them with your phone camera, or upload the image at `/app` (it also accepts a screenshot
+pasted with Ctrl + V).
 
-## Important
+| Product | Public QR (outside the box) | Secret QR (under the seal) |
+| --- | --- | --- |
+| `VF-7PRY5U2K` | <img src="VF-7PRY5U2K-qr-publico.svg" width="140" alt="Public QR of VF-7PRY5U2K"> | <img src="VF-7PRY5U2K-qr-secreto.svg" width="140" alt="Secret QR of VF-7PRY5U2K"> |
+| `VF-CHSKNVCB` | <img src="VF-CHSKNVCB-qr-publico.svg" width="140" alt="Public QR of VF-CHSKNVCB"> | <img src="VF-CHSKNVCB-qr-secreto.svg" width="140" alt="Secret QR of VF-CHSKNVCB"> |
+| `VF-NNBWZKFB` | <img src="VF-NNBWZKFB-qr-publico.svg" width="140" alt="Public QR of VF-NNBWZKFB"> | <img src="VF-NNBWZKFB-qr-secreto.svg" width="140" alt="Secret QR of VF-NNBWZKFB"> |
+| `VF-H9NQTE55` | <img src="VF-H9NQTE55-qr-publico.svg" width="140" alt="Public QR of VF-H9NQTE55"> | <img src="VF-H9NQTE55-qr-secreto.svg" width="140" alt="Secret QR of VF-H9NQTE55"> |
+| `VF-3AKFFBMC` | <img src="VF-3AKFFBMC-qr-publico.svg" width="140" alt="Public QR of VF-3AKFFBMC"> | <img src="VF-3AKFFBMC-qr-secreto.svg" width="140" alt="Secret QR of VF-3AKFFBMC"> |
+| `VF-F9B3YRVD` | <img src="VF-F9B3YRVD-qr-publico.svg" width="140" alt="Public QR of VF-F9B3YRVD"> | Reserved for the team |
 
-- **Each secret QR works only once.** Give each juror a different pair (there are 6). Once used, that unit
-  cannot be activated again by anyone else.
-- `VF-D5MB996H` is reserved for the team's own demo recording; use one of the other five for the jury.
-- These are real Solana **devnet** transactions, not simulated data: each certificate links to Solana Explorer.
+## Good to know
+
+- **One activation per product.** That is the point: a sealed code that was already used cannot make a second owner.
+  There are five products for the jury, so each juror can take a different one.
+- **Nothing to install, no crypto needed.** Signing in with an email creates the Solana wallet, and Verifire pays the fees.
+- **Everything is on devnet**, Solana's public test network. No real money moves, and every certificate links to a real
+  transaction on [Solana Explorer](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet).
+- These codes are published on purpose, for the demo. A real company keeps the secret codes of its batches private.
