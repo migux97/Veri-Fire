@@ -21,12 +21,12 @@ Pick **one row** in the table. Each product can be activated **only once**, so i
 
 | Product | Verify (public QR) | Activate (secret QR) |
 | --- | --- | --- |
-| `VF-7PRY5U2K` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=C8UGRD5fcN7Okw) |
-| `VF-CHSKNVCB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-CHSKNVCB) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=LDis_EyieJ84PA) |
-| `VF-NNBWZKFB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-NNBWZKFB) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=tuwqHMz4qBIRYg) |
-| `VF-H9NQTE55` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-H9NQTE55) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=TcTKepY-m-SPlA) |
-| `VF-3AKFFBMC` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-3AKFFBMC) | [Activate](https://verifire-solana.cosmosapp.lat/app#q=Ugu9BUOQzuLk7A) |
-| `VF-F9B3YRVD` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-F9B3YRVD) | Reserved for the team's demo recording |
+| `VF-7PRY5U2K` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K&lang=en) | [Activate](https://verifire-solana.cosmosapp.lat/app?lang=en#q=C8UGRD5fcN7Okw) |
+| `VF-CHSKNVCB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-CHSKNVCB&lang=en) | [Activate](https://verifire-solana.cosmosapp.lat/app?lang=en#q=LDis_EyieJ84PA) |
+| `VF-NNBWZKFB` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-NNBWZKFB&lang=en) | [Activate](https://verifire-solana.cosmosapp.lat/app?lang=en#q=tuwqHMz4qBIRYg) |
+| `VF-H9NQTE55` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-H9NQTE55&lang=en) | [Activate](https://verifire-solana.cosmosapp.lat/app?lang=en#q=TcTKepY-m-SPlA) |
+| `VF-3AKFFBMC` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-3AKFFBMC&lang=en) | [Activate](https://verifire-solana.cosmosapp.lat/app?lang=en#q=Ugu9BUOQzuLk7A) |
+| `VF-F9B3YRVD` | [Verify](https://verifire-solana.cosmosapp.lat/verify?token=VF-F9B3YRVD&lang=en) | Reserved for the team's demo recording |
 
 ## Prefer the real experience? Scan the QR codes
 
