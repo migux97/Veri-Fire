@@ -141,7 +141,11 @@ function Bridge({ cluster }: { cluster: string }) {
       logout: () => logout(),
       signTransaction: async (transaction) =>
         (await signTransaction({ transaction, wallet: current(), chain: chainOf(cluster) })).signedTransaction,
-      signMessage: async (message) => (await signMessage({ message, wallet: current() })).signature
+      // Messages are only the server's nonces, which prove the wallet to Verifire (wallet-auth.ts) and move no funds.
+      // The company panel signs one on every page it opens, so Privy's confirmation window would pop up all the time.
+      // Transactions keep their window: those are the moments the user decides something.
+      signMessage: async (message) =>
+        (await signMessage({ message, wallet: current(), options: { uiOptions: { showWalletUIs: false } } })).signature
     });
     return () => registerPrivyBridge(null);
   }, [ready, login, logout, signTransaction, signMessage, cluster]);
