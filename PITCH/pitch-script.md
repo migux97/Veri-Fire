@@ -1,6 +1,6 @@
 # Pitch script (2:00)
 
-About 310 words: it fits in two minutes at a brisk pace. If a take runs long, cut the "Why Solana" block to its first
+About 330 words: it fits in two minutes at a brisk pace. If a take runs long, cut the "Why Solana" block to its first
 sentence.
 
 **0:00 to 0:20 · The problem** (slide: +$500B)
@@ -35,7 +35,8 @@ other brands and distributors. We charge per registered product, paid in USDC.
 
 **1:35 to 1:50 · Team**
 
-Franco and Emanuel build the program and the app. Jorge runs marketing and the relationship with brands.
+I built the Solana program and the backend, Jorge the company panel, and Emanuel the landing. Jorge and I come from
+Argentina Builders, and we're based in Salta, a few hours from the Cafayate wineries we start with.
 
 **1:50 to 2:00 · Next milestone**
 
