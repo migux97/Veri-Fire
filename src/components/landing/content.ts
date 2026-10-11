@@ -214,7 +214,7 @@ export const faqs = [
   },
   {
     question: '¿Cómo se paga un lote de etiquetas?',
-    answer: 'En USDC con Solana Pay, desde tu wallet de Verifire o cualquier wallet de Solana. Cuando se confirma el pago, cada producto del lote queda registrado en Solana.'
+    answer: 'En USDC con Solana Pay, desde cualquier wallet de Solana (Phantom, Solflare...) o con una transferencia del monto exacto. Cuando se confirma el pago, cada producto del lote queda registrado en Solana.'
   },
   {
     question: '¿Qué se guarda en la blockchain?',

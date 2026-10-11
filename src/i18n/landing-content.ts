@@ -54,7 +54,7 @@ const safeguards = [
 const faqs = [
   { question: 'What if someone copies the outside label?', answer: 'The public QR code only provides information: it shows the actual product status. A replica using the code of an already activated unit is exposed on the first scan.' },
   { question: 'Does the buyer need a wallet or cryptocurrency?', answer: 'No. They sign in with their email, a wallet is created automatically, and Verifire covers the network fee.' },
-  { question: 'How do I pay for a batch of labels?', answer: 'In USDC with Solana Pay, from your Verifire wallet or any Solana wallet. Once payment is confirmed, each product in the batch is registered on Solana.' },
+  { question: 'How do I pay for a batch of labels?', answer: 'In USDC with Solana Pay, from any Solana wallet (Phantom, Solflare...) or with a transfer of the exact amount. Once payment is confirmed, each product in the batch is registered on Solana.' },
   { question: 'What is stored on the blockchain?', answer: 'The model, batch, destination, owner, and public activation key. The secret code never leaves the label: the phone signs with it, and only the signature is sent.' },
   { question: 'Can I see where my products are activated?', answer: 'Yes. The brand dashboard shows each batch, its activated units, and their destinations.' },
   { question: 'Does it work for products without a warranty?', answer: 'Yes. Activation also serves as a purchase record: it registers the owner even when there is no warranty.' }

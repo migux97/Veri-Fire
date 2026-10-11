@@ -87,8 +87,8 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
 
 ### Company (the issuer)
 1. Sign up, choose the company workspace and fill in the profile (legal name, tax ID, website).
-2. Buy a batch of tokens at `/admin`, paying in USDC with **Solana Pay**: scan the QR with any Solana wallet, or pay
-   from the Verifire wallet in one click.
+2. Buy a batch of tokens at `/admin`, paying in USDC with **Solana Pay**: scan the QR or open the payment link
+   with any Solana wallet, or send a plain USDC transfer of the exact amount shown.
 3. When the payment is confirmed on-chain, the server registers every product in the program (`mint_product`).
 4. Print the labels (public QR outside, secret QR inside) and mark the batch as shipped from the batches panel.
 5. Ask for verification from Settings → Verification. Until an administrator approves it, its products show as "registered".
@@ -124,6 +124,17 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
   every user an embedded Solana wallet from an email or a Google account.
 - **Anyone can audit it.** Every registration, activation and transfer is a transaction that opens in Solana Explorer,
   and the program emits an event for each of them.
+
+## Team
+
+We are based in Salta, Argentina, a few hours from Cafayate, so we can visit wineries in person and label a first lot
+with them.
+
+| Who | Role | What they built in VeriFire |
+| --- | --- | --- |
+| **Franco Alejandro Mamani** ([@migux97](https://github.com/migux97)) | Lead developer · Argentina Builders | The Solana Anchor program (ed25519 seal verification, ownership transfers), the server, Privy wallets, Solana Pay payments, the buyer flow and the migration to Solana |
+| **Jorge Emanuel Conte** ([@hyper37](https://github.com/hyper37)) | Developer · Argentina Builders | The company panel: batches, team invitations by email, link and QR, templates, profile and settings |
+| **Emanuel Guzman** ([@Emanuel250YT](https://github.com/Emanuel250YT), [LinkedIn](https://linkedin.com/in/emanuel250)) | Developer | The move to Astro, the landing page and the sign-in and brand styles. Self-taught developer for 5 years, working at CloudyCoding; studying at Argentina Programa (UBA/UTN) and the Catholic University of Salta |
 
 ## Install, run and test
 
