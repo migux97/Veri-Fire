@@ -12,7 +12,7 @@ ownership live on-chain and follow the product when it is resold.
 
 - **Try it in 2 minutes, nothing to install:** [`docs/demo-qrs/`](docs/demo-qrs/) has five sealed products for the
   jury. One click verifies a product, another activates its warranty on Solana in your name after signing in with any
-  email. Or just open [a product's public page](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K).
+  email. Or just open [a product's public page](https://verifire-solana.cosmosapp.lat/verify?token=VF-7PRY5U2K&lang=en).
 - **Program on Solana devnet:** [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet).
   Its transaction history shows the deploy, `initialize`, three `mint_product`, two `activate_product` (each one next
   to its `Ed25519SigVerify` instruction) and one `offer_transfer`.
