@@ -117,7 +117,8 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
   program. VeriFire's program reads that check through the Instructions sysvar, so the secret QR's signature, the
   buyer's signature and the rule "activate only once" are enforced by the network, not by our server.
 - **One account per product.** Each unit is a PDA seeded by its public code: the code is unique by construction, the
-  record is cheap (about 0.005 SOL of rent, recoverable) and anyone can read it with a single RPC call.
+  record costs about 0.005 SOL of rent, locked while the account exists (the program has no instruction to close it
+  yet), and anyone can read it with a single RPC call.
 - **Fees are tiny and sponsored.** Verifire is the fee payer of every user transaction, so buyers and companies never hold
   SOL. Before co-signing, the server rebuilds the exact message it expects and refuses anything else.
 - **Payments and wallets are native.** Batches are paid in USDC with Solana Pay from any Solana wallet, and Privy gives

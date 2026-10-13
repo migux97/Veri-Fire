@@ -1,7 +1,8 @@
 # Demo products for the jury
 
-Six real, sealed products registered on **Solana devnet** by a company that Verifire verified. Use them to try the whole
-flow on **https://verifire-solana.cosmosapp.lat** without installing anything and without a crypto wallet.
+Six real, sealed products registered on **Solana devnet** by a company that Verifire verified: five for the jury, and
+`VF-F9B3YRVD`, reserved for the team's demo recording. Use them to try the whole flow on
+**https://verifire-solana.cosmosapp.lat** without installing anything and without a crypto wallet.
 
 Batch `BATCH-300B38B803` · model **Ryzen 7700G** · lot `VF-2026-F185D883` · destination Argentina · LATAM.
 
