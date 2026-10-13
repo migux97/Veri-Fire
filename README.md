@@ -177,8 +177,9 @@ so. Set the program and the server's keypair to make them real.
 4. **Or activate a real one yourself:** [`docs/demo-qrs/`](docs/demo-qrs/) has five sealed, unclaimed demo products
    for the jury, each with one-click links and its public and secret QR, and instructions for both.
 
-**Videos:** [full demo walkthrough](PITCH/video-demo.md) and [an external user activating a product with no help from
-the team](PITCH/video-external-user.md).
+**Videos:** [pitch](PITCH/VeriFire%20pitch%20EN.mp4) (1:58), [full demo walkthrough on Solana](PITCH/video-demo.md)
+(2:57), and [an external user activating a product with no help from the team](PITCH/video-external-user.md) (recorded
+on the first prototype).
 
 ## Verifiable on-chain evidence
 

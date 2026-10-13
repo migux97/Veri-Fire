@@ -1,0 +1,124 @@
+1
+00:00:00,600 --> 00:00:05,930
+VeriFire gives every high-value product a Solana identity.
+
+2
+00:00:06,080 --> 00:00:15,390
+Here, a brand registers a batch, and a buyer claims one with its sealed QR.
+
+3
+00:00:16,140 --> 00:00:20,680
+This is the VeriFire website, starting from the home page.
+
+4
+00:00:20,830 --> 00:00:24,080
+First, we sign in to get started.
+
+5
+00:00:24,230 --> 00:00:26,930
+And here is our company panel.
+
+6
+00:00:27,080 --> 00:00:30,670
+It gives us an overview of everything.
+
+7
+00:00:30,820 --> 00:00:40,820
+Here is the batches section: we pick a product template, our saved products, and we can add an image too.
+
+8
+00:00:40,970 --> 00:00:46,060
+We can also choose the batch and the quantity, and customize the labels.
+
+9
+00:00:52,040 --> 00:00:54,750
+This is where we pay for a batch.
+
+10
+00:00:54,900 --> 00:00:57,370
+It's all done on Solana.
+
+11
+00:00:57,520 --> 00:01:00,960
+We can pay with Phantom or Solflare.
+
+12
+00:01:01,110 --> 00:01:05,130
+We can also copy the address and the exact amount.
+
+13
+00:01:05,280 --> 00:01:08,270
+Once it's paid, here is our batch,
+
+14
+00:01:08,420 --> 00:01:14,850
+with each product's public QR and secret QR, and the quantity.
+
+15
+00:01:15,000 --> 00:01:20,160
+And here is the record of everything we did on Solana.
+
+16
+00:01:26,140 --> 00:01:29,550
+Now let's switch to the buyer's side.
+
+17
+00:01:29,700 --> 00:01:35,460
+As a buyer, this is where we see our warranties, the whole system.
+
+18
+00:01:35,510 --> 00:01:44,300
+We upload the secret QR from one of the products we issued, and activate the warranty with Privy.
+
+19
+00:01:44,450 --> 00:01:47,540
+We wait a moment while it loads…
+
+20
+00:01:47,690 --> 00:01:50,810
+…and the warranty is active.
+
+21
+00:01:53,940 --> 00:01:57,200
+Now we have the owner history,
+
+22
+00:01:57,350 --> 00:02:03,440
+where the product came from, and its certificate on Solana, right here.
+
+23
+00:02:03,590 --> 00:02:09,210
+Here is the transaction on Solana devnet:
+
+24
+00:02:09,360 --> 00:02:19,830
+the native ed25519 program checks the sealed QR, and our program makes me the owner, only once.
+
+25
+00:02:19,980 --> 00:02:25,390
+It also shows the product was shipped to its destination,
+
+26
+00:02:25,540 --> 00:02:31,380
+verified through the public QR, and that I'm its only owner.
+
+27
+00:02:31,780 --> 00:02:38,730
+We can also transfer it to someone else, again with Privy. Once we confirm,
+
+28
+00:02:38,880 --> 00:02:40,770
+the transfer is open.
+
+29
+00:02:40,920 --> 00:02:42,850
+Now we just wait.
+
+30
+00:02:43,000 --> 00:02:48,090
+The other person opens the link or scans the QR to accept it.
+
+31
+00:02:48,240 --> 00:02:49,810
+And that's it.
+

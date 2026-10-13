@@ -6,7 +6,7 @@ sentence.
 **0:00 to 0:20 · The problem** (slide: +$500B)
 
 When you buy a pair of limited sneakers, a graphics card or a watch, you have to take the seller's word that it is
-real, and once it is resold, nobody can prove where it came from. Counterfeit goods move close to half a trillion
+real, and once it is resold, nobody can prove where it came from. Counterfeit goods move over five hundred billion
 dollars a year, according to the OECD and the EU's intellectual property office.
 
 **0:20 to 0:35 · The insight** (slide: one token, two QRs)

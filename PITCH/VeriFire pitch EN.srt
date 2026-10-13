@@ -1,0 +1,89 @@
+1
+00:00:00,700 --> 00:00:05,607
+When you buy a pair of limited sneakers, a graphics card or a watch,
+
+2
+00:00:05,657 --> 00:00:13,938
+you have to take the seller's word that it is real, and once it is resold, nobody can prove where it came from.
+
+3
+00:00:13,988 --> 00:00:19,762
+Counterfeit goods move over five hundred billion dollars a year.
+
+4
+00:00:19,812 --> 00:00:24,802
+A serial number or a QR printed on a box can be copied.
+
+5
+00:00:24,852 --> 00:00:31,290
+What cannot be copied is a secret sealed inside the box that only appears when it is opened.
+
+6
+00:00:31,340 --> 00:00:38,802
+So every unit gets two QRs: a public one to verify, and a sealed one to claim it.
+
+7
+00:00:38,852 --> 00:00:43,258
+After buying, the customer opens the box and scans the secret QR,
+
+8
+00:00:43,308 --> 00:00:50,618
+signs in with an email, and the product and its warranty are theirs on Solana.
+
+9
+00:00:50,668 --> 00:00:54,298
+If they resell it, ownership moves with it.
+
+10
+00:00:54,348 --> 00:00:59,650
+Each unit is an account in our Anchor program on devnet.
+
+11
+00:00:59,700 --> 00:01:06,634
+The seal is checked on-chain with Solana's native ed25519 verification,
+
+12
+00:01:06,684 --> 00:01:09,338
+so it can only be claimed once.
+
+13
+00:01:09,388 --> 00:01:13,242
+We pay the fees, so buyers never need SOL.
+
+14
+00:01:13,292 --> 00:01:20,708
+We focus on high-value products that are not mass-produced:
+sneakers, electronics, watches, perfume, wine.
+
+15
+00:01:20,758 --> 00:01:23,906
+We start with wineries in Cafayate, Salta,
+
+16
+00:01:23,956 --> 00:01:29,810
+where lot traceability for export gives us a concrete entry point.
+
+17
+00:01:29,860 --> 00:01:33,626
+We charge per registered product, paid in USDC.
+
+18
+00:01:33,676 --> 00:01:39,594
+I built the Solana program and the backend, Jorge the company panel, and Emanuel the landing.
+
+19
+00:01:39,644 --> 00:01:42,338
+Jorge and I come from Argentina Builders,
+
+20
+00:01:42,388 --> 00:01:47,866
+and we're based in Salta, a few hours from the Cafayate wineries we start with.
+
+21
+00:01:47,916 --> 00:01:56,466
+Our next step is a pilot with a first brand labeling real products, measuring how many buyers verify and claim them.
+
+22
+00:01:56,516 --> 00:01:57,084
+Thank you.
+
