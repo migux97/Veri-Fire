@@ -143,6 +143,15 @@ pub mod verifire_product {
         emit!(ProductTransferred { token_id: product.token_id, product: product.key(), previous, owner: recipient });
         Ok(())
     }
+
+    /// Cierra un producto que nunca se activó (un lote que no se vendió, una etiqueta dada de baja) y devuelve su rent
+    /// a `receiver`. Lo firma la cuenta emisora. Un producto con dueño no se cierra: es el registro del comprador. El
+    /// código queda libre y se puede volver a emitir.
+    pub fn close_product(ctx: Context<CloseProduct>) -> Result<()> {
+        let product = &ctx.accounts.product;
+        emit!(ProductClosed { token_id: product.token_id, product: product.key(), receiver: ctx.accounts.receiver.key() });
+        Ok(())
+    }
 }
 
 /// Bytes que firma una clave de activación o de transferencia: dominio || programa || producto || cuenta.
@@ -306,6 +315,24 @@ pub struct AcceptTransfer<'info> {
     pub instructions: UncheckedAccount<'info>,
 }
 
+#[derive(Accounts)]
+pub struct CloseProduct<'info> {
+    #[account(seeds = [CONFIG_SEED], bump = config.bump, has_one = minter @ VerifireError::NotMinter)]
+    pub config: Account<'info, Config>,
+    pub minter: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [PRODUCT_SEED, product.public_code.as_bytes()],
+        bump = product.bump,
+        constraint = product.owner.is_none() @ VerifireError::AlreadyClaimed,
+        close = receiver,
+    )]
+    pub product: Account<'info, Product>,
+    /// Recibe el rent del producto; normalmente la cuenta que lo pagó al emitir.
+    #[account(mut)]
+    pub receiver: SystemAccount<'info>,
+}
+
 #[event]
 pub struct ConfigUpdated {
     pub admin: Pubkey,
@@ -353,6 +380,13 @@ pub struct ProductTransferred {
     pub product: Pubkey,
     pub previous: Option<Pubkey>,
     pub owner: Pubkey,
+}
+
+#[event]
+pub struct ProductClosed {
+    pub token_id: u64,
+    pub product: Pubkey,
+    pub receiver: Pubkey,
 }
 
 // Los mensajes se mapean a textos en español en src/lib/server/solana.ts (por nombre de error).

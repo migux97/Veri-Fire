@@ -227,6 +227,21 @@ impl Env {
         self.accept_with(code, &key, recipient, &recipient.pubkey()).await
     }
 
+    async fn close_as(&mut self, signer: &Keypair, code: &str, receiver: Pubkey) -> Result<(), String> {
+        let ix = Instruction {
+            program_id: ID,
+            accounts: accounts::CloseProduct { config: config_pda(), minter: signer.pubkey(), product: product_pda(code), receiver }
+                .to_account_metas(None),
+            data: instruction::CloseProduct {}.data(),
+        };
+        let signer = signer.insecure_clone();
+        self.send(&[ix], &[&signer]).await
+    }
+
+    async fn lamports(&mut self, address: Pubkey) -> u64 {
+        self.ctx.banks_client.get_account(address).await.unwrap().map_or(0, |account| account.lamports)
+    }
+
     async fn product(&mut self, code: &str) -> Product {
         let account = self.ctx.banks_client.get_account(product_pda(code)).await.unwrap().expect("product account");
         Product::try_deserialize(&mut account.data.as_slice()).unwrap()
@@ -542,4 +557,45 @@ async fn admin_updates_config() {
 async fn empty_code_is_rejected() {
     let mut env = Env::ready(0).await;
     assert_err(env.mint_as(&env.minter.insecure_clone(), "", SECRET).await, "InvalidCode");
+}
+
+#[tokio::test]
+async fn closing_a_sealed_product_returns_its_rent_and_frees_the_code() {
+    let mut env = Env::ready(0).await;
+    env.mint(CODE, SECRET).await;
+    let rent = env.lamports(product_pda(CODE)).await;
+    assert!(rent > 0);
+    // Una cuenta nueva, sin SOL: lo que tenga después es exactamente el rent devuelto.
+    let receiver = Keypair::new().pubkey();
+    let minter = env.minter.insecure_clone();
+    env.close_as(&minter, CODE, receiver).await.unwrap();
+    assert_eq!(env.lamports(receiver).await, rent);
+    assert!(env.ctx.banks_client.get_account(product_pda(CODE)).await.unwrap().is_none(), "la cuenta del producto ya no existe");
+    // El código queda libre: se puede emitir de nuevo, con otro secreto y el siguiente token id.
+    env.mint(CODE, "VF-SECRET-OTHER").await;
+    assert_eq!(env.product(CODE).await.token_id, 2);
+}
+
+#[tokio::test]
+async fn a_claimed_product_cannot_be_closed() {
+    let mut env = Env::ready(0).await;
+    env.mint(CODE, SECRET).await;
+    let buyer = env.new_user().await;
+    env.activate(CODE, SECRET, &buyer).await.unwrap();
+    let minter = env.minter.insecure_clone();
+    let receiver = env.ctx.payer.pubkey();
+    assert_err(env.close_as(&minter, CODE, receiver).await, "AlreadyClaimed");
+    assert_eq!(env.product(CODE).await.owner, Some(buyer.pubkey()), "el comprador sigue siendo el dueño");
+}
+
+#[tokio::test]
+async fn only_the_minter_closes_products() {
+    let mut env = Env::ready(0).await;
+    env.mint(CODE, SECRET).await;
+    let receiver = env.ctx.payer.pubkey();
+    let intruder = Keypair::new();
+    assert_err(env.close_as(&intruder, CODE, receiver).await, "NotMinter");
+    let admin = env.admin.insecure_clone();
+    assert_err(env.close_as(&admin, CODE, receiver).await, "NotMinter");
+    assert!(env.product(CODE).await.owner.is_none(), "el producto sigue sellado");
 }

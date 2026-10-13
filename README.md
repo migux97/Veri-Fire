@@ -117,14 +117,33 @@ Each unit gets **two QR codes** and one account (a PDA) in the VeriFire Anchor p
   program. VeriFire's program reads that check through the Instructions sysvar, so the secret QR's signature, the
   buyer's signature and the rule "activate only once" are enforced by the network, not by our server.
 - **One account per product.** Each unit is a PDA seeded by its public code: the code is unique by construction, the
-  record costs about 0.005 SOL of rent, locked while the account exists (the program has no instruction to close it
-  yet), and anyone can read it with a single RPC call.
+  record costs 0.0038 SOL of rent (see [Unit economics](#unit-economics-measured-on-devnet)), and anyone can read it with
+  a single RPC call.
 - **Fees are tiny and sponsored.** Verifire is the fee payer of every user transaction, so buyers and companies never hold
   SOL. Before co-signing, the server rebuilds the exact message it expects and refuses anything else.
 - **Payments and wallets are native.** Batches are paid in USDC with Solana Pay from any Solana wallet, and Privy gives
   every user an embedded Solana wallet from an email or a Google account.
 - **Anyone can audit it.** Every registration, activation and transfer is a transaction that opens in Solana Explorer,
   and the program emits an event for each of them.
+
+## Unit economics (measured on devnet)
+
+Costs taken from the program's own transactions on devnet, converted at SOL = USD 108.21 (CoinGecko, October 13, 2026).
+
+| Operation | Cost | USD |
+| --- | --- | --- |
+| [Register a unit](https://explorer.solana.com/tx/u4ZT2P6Ex7WAvs3tYGtJkFosiDybjScx2vmPfxsCvigBB94KAqdKVCrypCTp5VSuJTzatWTC9LzQjW3f1TQ3cPZ?cluster=devnet) (`mint_product`) | 0.0037948 SOL of rent for its 619-byte account + 0.000005 SOL fee | ~0.41 |
+| [Activate it](https://explorer.solana.com/tx/dHfgEvqv9Mnm9xLgTL3A7FosVwfnd7qrFUpV9j6auTVLWuUPvoU4JfHjL6GArhNtr75h7chNj9iYWSMxUhQoY8w?cluster=devnet) (`Ed25519SigVerify` + `activate_product`) | 0.000015 SOL fee | ~0.0016 |
+| [Open a transfer link](https://explorer.solana.com/tx/4MqvHKrHv4Wz4cMdopZBjbtXBAwtesiKPEyhCz4LCrNoLVCzz2RCHv1fsh3vBwjmXZ519AKRphxEeAJ68nMjy5Sj?cluster=devnet) (`offer_transfer`) | 0.00001 SOL fee | ~0.0011 |
+
+- **Network fees are negligible** next to the price of USD 0.025–0.25 per unit. The real cost is the account rent, about
+  USD 0.41 per unit at today's price, paid by Verifire when the unit is registered.
+- **`close_product` returns the rent of units that are never activated** (unsold stock, discarded labels): the minter
+  closes the account and the code becomes free again. An activated unit keeps its account, because it is the buyer's
+  record. It is covered by native tests and not yet deployed to devnet.
+- **What still does not fit:** the rent of activated units is higher than the price. The fix in progress (branch `dev`)
+  registers a batch as one account with a Merkle root, so only activated units get an account of their own. With that
+  design and 20 % of the printed units activated, the locked rent per printed unit drops to about USD 0.08.
 
 ## Team
 
@@ -191,6 +210,9 @@ All of this is on Solana **devnet**.
 | VeriFire program | [`6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8`](https://explorer.solana.com/address/6a6EMSNxCrFzcLA38Q5WwcPWgyDPqdghaoaWhvHAEnj8?cluster=devnet) |
 | Treasury (receives Solana Pay payments in USDC) | [`8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK`](https://explorer.solana.com/address/8gE8ezEXR7TWMKjub4ZsEXJihVLqfevYwLyaTHtFZUVK?cluster=devnet) |
 | Fee payer and minter (pays fees, signs registrations) | The fee payer of the program's `mint_product` transactions in the explorer above |
+| A product registered | [`mint_product`](https://explorer.solana.com/tx/u4ZT2P6Ex7WAvs3tYGtJkFosiDybjScx2vmPfxsCvigBB94KAqdKVCrypCTp5VSuJTzatWTC9LzQjW3f1TQ3cPZ?cluster=devnet): the minter creates the product account |
+| A warranty activated | [`Ed25519SigVerify` + `activate_product`](https://explorer.solana.com/tx/dHfgEvqv9Mnm9xLgTL3A7FosVwfnd7qrFUpV9j6auTVLWuUPvoU4JfHjL6GArhNtr75h7chNj9iYWSMxUhQoY8w?cluster=devnet): the native program checks the sealed QR's signature, then the buyer becomes the owner |
+| A transfer link opened | [`offer_transfer`](https://explorer.solana.com/tx/4MqvHKrHv4Wz4cMdopZBjbtXBAwtesiKPEyhCz4LCrNoLVCzz2RCHv1fsh3vBwjmXZ519AKRphxEeAJ68nMjy5Sj?cluster=devnet): the owner opens a single-use link for the next owner |
 
 The program id is also declared in [`lib.rs`](solana/programs/verifire_product/src/lib.rs) (`declare_id!`) and in
 [`Anchor.toml`](solana/Anchor.toml).
@@ -233,7 +255,8 @@ Planned, not built yet:
 Design, security decisions and pending work: [`docs/solana-architecture.md`](docs/solana-architecture.md).
 
 `initialize` (upgrade authority only), `update_config`, `mint_product` (minter), `import_claimed_product` (admin),
-`activate_product`, `offer_transfer`, `cancel_transfer` and `accept_transfer`. Each product is a PDA `["product", code]`
+`activate_product`, `offer_transfer`, `cancel_transfer`, `accept_transfer` and `close_product` (minter, only for a
+product that was never activated; returns its rent). Each product is a PDA `["product", code]`
 and the config a PDA `["config"]` with separate admin and minter keys. Activation and acceptance require an
 `Ed25519SigVerify` instruction right before them, checked through the Instructions sysvar; transfer links always expire
 and can only be reopened after a cooldown. Every operation emits an event. Error codes and the signed message format are
